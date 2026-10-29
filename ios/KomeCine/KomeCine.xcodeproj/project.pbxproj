@@ -1,0 +1,644 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		2277F2CBDEA4BE105B82C6F5 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 2B0AA600B0FCE4A942D1E45A /* GoogleSignInSwift */; };
+		897DB89FECDC0644D5C649D5 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 12196D31A3A15C19F559C8A2 /* GoogleSignIn */; };
+		FC86D1243092F7AD00A818BB /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = FC86D1233092F7AD00A818BB /* GoogleSignIn */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FC86D0F23092F61E00A818BB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC86D0DC3092F61D00A818BB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FC86D0E33092F61D00A818BB;
+			remoteInfo = KomeCine;
+		};
+		FC86D0FC3092F61E00A818BB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC86D0DC3092F61D00A818BB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FC86D0E33092F61D00A818BB;
+			remoteInfo = KomeCine;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		FC86D0E43092F61D00A818BB /* KomeCine.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KomeCine.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FC86D0F13092F61E00A818BB /* KomeCineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KomeCineTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FC86D0FB3092F61E00A818BB /* KomeCineUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KomeCineUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		FC86D1283092F8DE00A818BB /* Exceptions for "KomeCine" folder in "KomeCine" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = FC86D0E33092F61D00A818BB /* KomeCine */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		FC86D0E63092F61D00A818BB /* KomeCine */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				FC86D1283092F8DE00A818BB /* Exceptions for "KomeCine" folder in "KomeCine" target */,
+			);
+			path = KomeCine;
+			sourceTree = "<group>";
+		};
+		FC86D0F43092F61E00A818BB /* KomeCineTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = KomeCineTests;
+			sourceTree = "<group>";
+		};
+		FC86D0FE3092F61E00A818BB /* KomeCineUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = KomeCineUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FC86D0E13092F61D00A818BB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FC86D1243092F7AD00A818BB /* GoogleSignIn in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC86D0EE3092F61E00A818BB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC86D0F83092F61E00A818BB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				897DB89FECDC0644D5C649D5 /* GoogleSignIn in Frameworks */,
+				2277F2CBDEA4BE105B82C6F5 /* GoogleSignInSwift in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		FC86D0DB3092F61D00A818BB = {
+			isa = PBXGroup;
+			children = (
+				FC86D0E63092F61D00A818BB /* KomeCine */,
+				FC86D0F43092F61E00A818BB /* KomeCineTests */,
+				FC86D0FE3092F61E00A818BB /* KomeCineUITests */,
+				FC86D1223092F7AD00A818BB /* Frameworks */,
+				FC86D0E53092F61D00A818BB /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		FC86D0E53092F61D00A818BB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FC86D0E43092F61D00A818BB /* KomeCine.app */,
+				FC86D0F13092F61E00A818BB /* KomeCineTests.xctest */,
+				FC86D0FB3092F61E00A818BB /* KomeCineUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FC86D1223092F7AD00A818BB /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		FC86D0E33092F61D00A818BB /* KomeCine */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FC86D1033092F61E00A818BB /* Build configuration list for PBXNativeTarget "KomeCine" */;
+			buildPhases = (
+				FC86D0E03092F61D00A818BB /* Sources */,
+				FC86D0E13092F61D00A818BB /* Frameworks */,
+				FC86D0E23092F61D00A818BB /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				FC86D0E63092F61D00A818BB /* KomeCine */,
+			);
+			name = KomeCine;
+			packageProductDependencies = (
+				FC86D1233092F7AD00A818BB /* GoogleSignIn */,
+			);
+			productName = KomeCine;
+			productReference = FC86D0E43092F61D00A818BB /* KomeCine.app */;
+			productType = "com.apple.product-type.application";
+		};
+		FC86D0F03092F61E00A818BB /* KomeCineTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FC86D1063092F61E00A818BB /* Build configuration list for PBXNativeTarget "KomeCineTests" */;
+			buildPhases = (
+				FC86D0ED3092F61E00A818BB /* Sources */,
+				FC86D0EE3092F61E00A818BB /* Frameworks */,
+				FC86D0EF3092F61E00A818BB /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FC86D0F33092F61E00A818BB /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				FC86D0F43092F61E00A818BB /* KomeCineTests */,
+			);
+			name = KomeCineTests;
+			packageProductDependencies = (
+			);
+			productName = KomeCineTests;
+			productReference = FC86D0F13092F61E00A818BB /* KomeCineTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		FC86D0FA3092F61E00A818BB /* KomeCineUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FC86D1093092F61E00A818BB /* Build configuration list for PBXNativeTarget "KomeCineUITests" */;
+			buildPhases = (
+				FC86D0F73092F61E00A818BB /* Sources */,
+				FC86D0F83092F61E00A818BB /* Frameworks */,
+				FC86D0F93092F61E00A818BB /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FC86D0FD3092F61E00A818BB /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				FC86D0FE3092F61E00A818BB /* KomeCineUITests */,
+			);
+			name = KomeCineUITests;
+			packageProductDependencies = (
+				12196D31A3A15C19F559C8A2 /* GoogleSignIn */,
+				2B0AA600B0FCE4A942D1E45A /* GoogleSignInSwift */,
+			);
+			productName = KomeCineUITests;
+			productReference = FC86D0FB3092F61E00A818BB /* KomeCineUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FC86D0DC3092F61D00A818BB /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2710;
+				LastUpgradeCheck = 2710;
+				TargetAttributes = {
+					FC86D0E33092F61D00A818BB = {
+						CreatedOnToolsVersion = 27.1;
+					};
+					FC86D0F03092F61E00A818BB = {
+						CreatedOnToolsVersion = 27.1;
+						TestTargetID = FC86D0E33092F61D00A818BB;
+					};
+					FC86D0FA3092F61E00A818BB = {
+						CreatedOnToolsVersion = 27.1;
+						TestTargetID = FC86D0E33092F61D00A818BB;
+					};
+				};
+			};
+			buildConfigurationList = FC86D0DF3092F61D00A818BB /* Build configuration list for PBXProject "KomeCine" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = FC86D0DB3092F61D00A818BB;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				161647BCB4AD8770D4F15B06 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = FC86D0E53092F61D00A818BB /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FC86D0E33092F61D00A818BB /* KomeCine */,
+				FC86D0F03092F61E00A818BB /* KomeCineTests */,
+				FC86D0FA3092F61E00A818BB /* KomeCineUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		FC86D0E23092F61D00A818BB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC86D0EF3092F61E00A818BB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC86D0F93092F61E00A818BB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		FC86D0E03092F61D00A818BB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC86D0ED3092F61E00A818BB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC86D0F73092F61E00A818BB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		FC86D0F33092F61E00A818BB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FC86D0E33092F61D00A818BB /* KomeCine */;
+			targetProxy = FC86D0F23092F61E00A818BB /* PBXContainerItemProxy */;
+		};
+		FC86D0FD3092F61E00A818BB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FC86D0E33092F61D00A818BB /* KomeCine */;
+			targetProxy = FC86D0FC3092F61E00A818BB /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		FC86D1013092F61E00A818BB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		FC86D1023092F61E00A818BB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		FC86D1043092F61E00A818BB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = KomeCine/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.komecine.KomeCine;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		FC86D1053092F61E00A818BB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = KomeCine/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.komecine.KomeCine;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		FC86D1073092F61E00A818BB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.komecine.KomeCineTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/KomeCine.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/KomeCine";
+			};
+			name = Debug;
+		};
+		FC86D1083092F61E00A818BB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.komecine.KomeCineTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/KomeCine.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/KomeCine";
+			};
+			name = Release;
+		};
+		FC86D10A3092F61E00A818BB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.komecine.KomeCineUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = KomeCine;
+			};
+			name = Debug;
+		};
+		FC86D10B3092F61E00A818BB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.komecine.KomeCineUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = KomeCine;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FC86D0DF3092F61D00A818BB /* Build configuration list for PBXProject "KomeCine" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FC86D1013092F61E00A818BB /* Debug */,
+				FC86D1023092F61E00A818BB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FC86D1033092F61E00A818BB /* Build configuration list for PBXNativeTarget "KomeCine" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FC86D1043092F61E00A818BB /* Debug */,
+				FC86D1053092F61E00A818BB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FC86D1063092F61E00A818BB /* Build configuration list for PBXNativeTarget "KomeCineTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FC86D1073092F61E00A818BB /* Debug */,
+				FC86D1083092F61E00A818BB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FC86D1093092F61E00A818BB /* Build configuration list for PBXNativeTarget "KomeCineUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FC86D10A3092F61E00A818BB /* Debug */,
+				FC86D10B3092F61E00A818BB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		161647BCB4AD8770D4F15B06 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		12196D31A3A15C19F559C8A2 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 161647BCB4AD8770D4F15B06 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		2B0AA600B0FCE4A942D1E45A /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 161647BCB4AD8770D4F15B06 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+		FC86D1233092F7AD00A818BB /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 161647BCB4AD8770D4F15B06 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = FC86D0DC3092F61D00A818BB /* Project object */;
+}

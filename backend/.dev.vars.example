@@ -1,0 +1,4 @@
+GOOGLE_CLIENT_ID=replace-with-google-web-client-id
+GOOGLE_CLIENT_SECRET=replace-with-google-client-secret
+BETTER_AUTH_SECRET=replace-with-a-random-32-byte-secret
+BETTER_AUTH_URL=http://localhost:8787

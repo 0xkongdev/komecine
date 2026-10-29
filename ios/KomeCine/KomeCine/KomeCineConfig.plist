@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>GoogleClientID</key><string>248772280839-15q6tnnjnv0hcmsiibedhqd8oqamlqb5.apps.googleusercontent.com</string>
+<key>GoogleServerClientID</key><string>248772280839-73fs5d93hd4kc4kvasg13osktargctok.apps.googleusercontent.com</string>
+<key>BackendURL</key><string>https://komecine-api.infra-coresys.workers.dev</string>
+</dict></plist>

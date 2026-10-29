@@ -1,0 +1,11 @@
+import {Hono} from 'hono';
+import {createCatalogRoutes} from './routes.ts';
+import {createLibraryRoutes} from './library.ts';
+import {D1LibraryStore} from './store.ts';
+import {configured,createAuth,type Env} from './auth.ts';
+export const app=new Hono<{Bindings:Env}>();
+app.get('/health',c=>c.json({name:'KomeCine',status:'ok'}));
+app.route('/v1',createCatalogRoutes());
+app.all('/api/auth/*',c=>{if(!configured(c.env)) return c.json({error:'auth_not_configured'},503); return createAuth(c.env).handler(c.req.raw);});
+app.all('/v1/me/*',c=>{if(!configured(c.env)) return c.json({error:'auth_not_configured'},503); const auth=createAuth(c.env); return createLibraryRoutes(req=>auth.api.getSession({headers:req.headers}),new D1LibraryStore(c.env.DB),'/v1/me').fetch(c.req.raw,c.env);});
+export default app;

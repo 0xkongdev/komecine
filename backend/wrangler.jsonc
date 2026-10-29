@@ -1,0 +1,9 @@
+{
+  "name": "komecine-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "account_id": "1a1524f96e02262aa858d9e5094727b8",
+  "d1_databases": [{"binding":"DB","database_name":"komecine","database_id":"94347296-330a-4960-9113-477b9cd931e2","migrations_dir":"migrations"}],
+  "vars": {"BETTER_AUTH_URL":"https://komecine-api.infra-coresys.workers.dev", "GOOGLE_CLIENT_ID":"248772280839-73fs5d93hd4kc4kvasg13osktargctok.apps.googleusercontent.com"}
+}
