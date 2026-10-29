@@ -165,8 +165,15 @@ private struct Hero: View {
 }
 
 private struct FeaturedCarousel: View {
+    private struct AutoAdvanceID: Equatable {
+        let selected: Int
+        let itemIDs: [String]
+        let scenePhase: ScenePhase
+    }
+
     let items: [RankedMovie]
     let width: CGFloat
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selected = 0
     var body: some View {
         TabView(selection:$selected) {
@@ -181,6 +188,15 @@ private struct FeaturedCarousel: View {
         }
         .accessibilityIdentifier("featured-carousel")
         .onChange(of:items.map(\.id)) { _,_ in selected=0 }
+        .task(id:AutoAdvanceID(selected:selected,itemIDs:items.map(\.id),scenePhase:scenePhase)) {
+            guard items.count > 1, scenePhase == .active else { return }
+            do { try await Task.sleep(for:.seconds(5)) }
+            catch { return }
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration:0.4)) {
+                selected = (selected + 1) % items.count
+            }
+        }
     }
 }
 
@@ -312,8 +328,9 @@ private struct MovieDetailView: View {
     @State private var error:String?
     init(movie: Movie, initialDetail: MovieDetail? = nil) { self.movie=movie; _detail=State(initialValue:initialDetail) }
     var body: some View {
+        GeometryReader { geometry in
         ScrollView { VStack(alignment:.leading,spacing:15) {
-            ZStack(alignment:.bottom) { Poster(url:movie.backdropURL ?? movie.posterURL).frame(height:260); LinearGradient(colors:[.clear,Design.background],startPoint:.center,endPoint:.bottom) }.frame(height:260)
+            ZStack(alignment:.bottom) { Poster(url:movie.backdropURL ?? movie.posterURL).frame(width:geometry.size.width,height:260).clipped(); LinearGradient(colors:[.clear,Design.background],startPoint:.center,endPoint:.bottom) }.frame(width:geometry.size.width,height:260)
             VStack(alignment:.leading,spacing:14) {
                 Text(movie.name).font(.title.bold()); if !movie.originName.isEmpty { Text(movie.originName).foregroundStyle(.secondary) }
                 if let detail {
@@ -334,7 +351,8 @@ private struct MovieDetailView: View {
                 } else if let error { Text(error).foregroundStyle(.secondary); Button("Thử lại") { Task { await load() } } }
                 else { ProgressView().frame(maxWidth:.infinity,minHeight:100) }
             }.padding(.horizontal,20)
-        }.padding(.bottom,35)}.background(Design.background.ignoresSafeArea()).navigationBarTitleDisplayMode(.inline)
+        }.frame(width:geometry.size.width).padding(.bottom,35)}
+        }.background(Design.background.ignoresSafeArea()).navigationBarTitleDisplayMode(.inline)
             .task { if detail == nil { await load() } }
     }
     private func load() async { error=nil; do { detail=try await APIClient.shared.detail(movie.slug) } catch { self.error=error.localizedDescription } }

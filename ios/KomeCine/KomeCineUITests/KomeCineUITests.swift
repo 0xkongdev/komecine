@@ -1,6 +1,48 @@
 import XCTest
 
 final class KomeCineUITests: XCTestCase {
+    @MainActor func testMovieDetailContentFitsScreen() throws {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launch()
+        let details = app.buttons["Chi tiết"].firstMatch
+        XCTAssertTrue(details.waitForExistence(timeout: 40))
+        details.tap()
+        let play = app.buttons.matching(NSPredicate(format: "label IN %@", ["Xem ngay", "Tiếp tục xem"])).firstMatch
+        XCTAssertTrue(play.waitForExistence(timeout: 30))
+
+        // Keep checking while the asynchronous backdrop loads and updates the layout.
+        let bounds = app.windows.firstMatch.frame
+        let overflow = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            play.frame.minX < bounds.minX + 16 || play.frame.maxX > bounds.maxX - 16
+        }, object: nil)
+        overflow.isInverted = true
+        wait(for: [overflow], timeout: 10)
+        let content = app.scrollViews.firstMatch
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "Movie detail layout"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        XCTAssertGreaterThanOrEqual(play.frame.minX, bounds.minX + 16, "Watch button must keep its leading inset")
+        XCTAssertLessThanOrEqual(play.frame.maxX, bounds.maxX - 16, "Watch button must fit on screen")
+        let texts = content.staticTexts.allElementsBoundByIndex
+        XCTAssertFalse(texts.isEmpty)
+        for text in texts where !text.frame.isEmpty {
+            XCTAssertGreaterThanOrEqual(text.frame.minX, bounds.minX + 16, "Detail text must keep its leading inset: \(text.label.prefix(50))")
+            XCTAssertLessThanOrEqual(text.frame.maxX, bounds.maxX - 16, "Detail text must fit on screen: \(text.label.prefix(50))")
+        }
+    }
+
+    @MainActor func testFeaturedCarouselAdvancesAutomatically() throws {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launch()
+        let first = app.staticTexts.matching(NSPredicate(format:"label BEGINSWITH %@", "Phim nổi bật 1 trên ")).firstMatch
+        XCTAssertTrue(first.waitForExistence(timeout: 40), "Featured movies should load")
+        let second = app.staticTexts.matching(NSPredicate(format:"label BEGINSWITH %@", "Phim nổi bật 2 trên ")).firstMatch
+        XCTAssertTrue(second.waitForExistence(timeout: 8), "Featured movies should advance without a swipe")
+    }
+
     @MainActor func testFeaturedCarouselAndPlayback() throws {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
