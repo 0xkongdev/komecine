@@ -3,7 +3,7 @@ import SwiftUI
 private enum Design {
     static let background = Color(red: 0.035, green: 0.043, blue: 0.055)
     static let surface = Color(red: 0.09, green: 0.105, blue: 0.12)
-    static let accent = Color(red: 0.22, green: 0.86, blue: 0.79)
+    static let accent = Color.accentColor
 }
 
 struct ContentView: View {
