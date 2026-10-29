@@ -80,3 +80,20 @@ test('ranking resolution rejects an unrelated or unplayable result', async () =>
     : Response.json({status:true,movie:{slug:'wrong'},episodes:[]}));
   assert.equal(await service.resolveRanking({name:'Wanted',originName:'Wanted',year:2026,type:'movie'}),null);
 });
+
+test('featured movies use RoPhim hot list and keep landscape artwork', async () => {
+  const service = new CatalogService(async input => {
+    assert.equal(input, 'https://rophim1.vip/baseapi/api/v1/movies/hot');
+    return Response.json({status:true,result:[{id:41,name:'Series',origin_name:'The Series',slug:'series',type:'series',publish_year:2026,poster:'https://image.example/backdrop.jpg'}]});
+  });
+  const featured = await service.featured();
+  assert.equal(featured.items.length, 1);
+  assert.equal(featured.items[0].movie.id, 'rophim:41');
+  assert.equal(featured.items[0].movie.backdropURL, 'https://image.example/backdrop.jpg');
+  assert.equal(featured.items[0].type, 'series');
+});
+
+test('featured movies reject invalid upstream data', async () => {
+  const service = new CatalogService(async () => Response.json({status:false,result:[]}));
+  await assert.rejects(() => service.featured(), UpstreamError);
+});

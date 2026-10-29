@@ -1,6 +1,20 @@
 import XCTest
 
 final class KomeCineUITests: XCTestCase {
+    @MainActor func testFeaturedCarouselAndPlayback() throws {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launch()
+        let first = app.staticTexts.matching(NSPredicate(format:"label BEGINSWITH %@", "Phim nổi bật 1 trên ")).firstMatch
+        XCTAssertTrue(first.waitForExistence(timeout: 40), "RoPhim featured movies should load")
+        app.swipeLeft()
+        let second = app.staticTexts.matching(NSPredicate(format:"label BEGINSWITH %@", "Phim nổi bật 2 trên ")).firstMatch
+        XCTAssertTrue(second.waitForExistence(timeout: 10), "Swiping should show another featured movie")
+        app.swipeRight()
+        XCTAssertTrue(first.waitForExistence(timeout: 10))
+        app.buttons["Xem ngay"].tap()
+        XCTAssertTrue(app.buttons["Khóa player"].waitForExistence(timeout: 30), "Featured playback should open the native player")
+    }
     @MainActor func testRankingsOpenMatchedMovie() throws {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()

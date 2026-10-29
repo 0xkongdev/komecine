@@ -121,6 +121,7 @@ private struct RankingDetailView: View {
 private struct Hero: View {
     let movie: Movie
     let width: CGFloat
+    var featured: RankedMovie? = nil
     @EnvironmentObject private var library: LocalLibrary
     @EnvironmentObject private var playback: PlaybackCoordinator
     @State private var isOpening = false
@@ -131,13 +132,16 @@ private struct Hero: View {
             LinearGradient(colors:[.clear,Design.background.opacity(0.3),Design.background],startPoint:.center,endPoint:.bottom).accessibilityHidden(true)
             VStack(alignment:.leading,spacing:10) {
                 Text("NỔI BẬT HÔM NAY").font(.system(size:10,weight:.bold)).tracking(2).foregroundStyle(Design.accent)
+                if featured != nil { Text("Theo RoPhim").font(.caption2).foregroundStyle(.white.opacity(0.7)) }
                 Text(movie.name).font(.system(size:31,weight:.bold)).lineLimit(2)
                 Text([movie.originName,movie.year.map(String.init)].compactMap{$0}.filter{!$0.isEmpty}.joined(separator:"  ·  ")).font(.subheadline).foregroundStyle(.white.opacity(0.7)).lineLimit(1)
                 HStack(spacing:14) {
                     Button { Task { await play() } } label: {
                         Label(isOpening ? "Đang tải" : "Xem ngay",systemImage:"play.fill").font(.subheadline.bold()).padding(.horizontal,18).padding(.vertical,11).background(Design.accent,in:Capsule()).foregroundStyle(.black)
                     }.disabled(isOpening)
-                    NavigationLink { MovieDetailView(movie:movie) } label: { Text("Chi tiết").font(.subheadline.bold()).foregroundStyle(.white) }
+                    NavigationLink {
+                        if let featured { RankingDetailView(item:featured) } else { MovieDetailView(movie:movie) }
+                    } label: { Text("Chi tiết").font(.subheadline.bold()).foregroundStyle(.white) }
                 }.padding(.top,5)
                 if let playbackError { Text(playbackError).font(.caption).foregroundStyle(.white) }
             }.padding(.horizontal,20).padding(.bottom,20)
@@ -148,12 +152,35 @@ private struct Hero: View {
         playbackError = nil
         defer { isOpening = false }
         do {
-            let detail = try await APIClient.shared.detail(movie.slug)
-            let progress = library.progress[movie.id]
+            let detail: MovieDetail
+            if let featured { detail = try await APIClient.shared.resolveRanking(featured) }
+            else { detail = try await APIClient.shared.detail(movie.slug) }
+            let playableMovie = detail.movie
+            let progress = library.progress[playableMovie.id]
             let source = detail.sources.first { $0.slug == progress?.episodeSlug && $0.server == progress?.server } ?? detail.sources.first
             guard let source else { playbackError = "Phim này hiện chưa có nguồn phát."; return }
-            playback.open(movie:movie,source:source,sources:detail.sources)
-        } catch { playbackError = "Không thể phát phim. Vui lòng thử lại." }
+            playback.open(movie:playableMovie,source:source,sources:detail.sources)
+        } catch { playbackError = error.localizedDescription }
+    }
+}
+
+private struct FeaturedCarousel: View {
+    let items: [RankedMovie]
+    let width: CGFloat
+    @State private var selected = 0
+    var body: some View {
+        TabView(selection:$selected) {
+            ForEach(Array(items.enumerated()),id:\.element.id) { index,item in
+                Hero(movie:item.movie,width:width,featured:item).tag(index)
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode:.never))
+        .frame(width:width,height:400)
+        .overlay(alignment:.topTrailing) {
+            if items.count > 1 { Text("\(min(selected + 1,items.count)) / \(items.count)").font(.caption.bold()).padding(.horizontal,10).padding(.vertical,5).background(.black.opacity(0.45),in:Capsule()).padding(16).accessibilityLabel("Phim nổi bật \(min(selected + 1,items.count)) trên \(items.count)") }
+        }
+        .accessibilityIdentifier("featured-carousel")
+        .onChange(of:items.map(\.id)) { _,_ in selected=0 }
     }
 }
 
@@ -163,6 +190,7 @@ private struct HomeView: View {
     @State private var series:[Movie]=[]
     @State private var movies:[Movie]=[]
     @State private var animation:[Movie]=[]
+    @State private var featured:[RankedMovie]=[]
     @State private var rankings:Rankings?
     @State private var rankingsUnavailable=false
     @State private var loading=true
@@ -171,7 +199,8 @@ private struct HomeView: View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(spacing:0) {
-                    if let first=latest.first { Hero(movie:first,width:geometry.size.width) }
+                    if !featured.isEmpty { FeaturedCarousel(items:featured,width:geometry.size.width) }
+                    else if let first=latest.first { Hero(movie:first,width:geometry.size.width) }
                     else if loading { ProgressView().frame(height:300) }
                     else if let error { ContentUnavailableView { Label("Không tải được phim",systemImage:"wifi.exclamationmark") } description: { Text(error) } actions: { Button("Thử lại") { Task { await load() } } }.frame(height:300) }
                     MovieShelf(title:"Tiếp tục xem",subtitle:"Phim bạn đang theo dõi",movies:library.recent)
@@ -194,11 +223,14 @@ private struct HomeView: View {
     private func load() async {
         loading=true; error=nil
         async let rankingLoad: Void = loadRankings()
+        async let featuredLoad = try? APIClient.shared.featured()
         do { latest=try await APIClient.shared.latest() } catch { self.error=error.localizedDescription }
         async let a = try? APIClient.shared.browse("phim-bo")
         async let b = try? APIClient.shared.browse("phim-le")
         async let c = try? APIClient.shared.browse("hoat-hinh")
-        series = await a ?? []; movies = await b ?? []; animation = await c ?? []; _ = await rankingLoad; loading=false
+        series = await a ?? []; movies = await b ?? []; animation = await c ?? []
+        if let newFeatured = await featuredLoad, !newFeatured.isEmpty { featured=newFeatured }
+        _ = await rankingLoad; loading=false
     }
     private func loadRankings() async {
         do { rankings = try await APIClient.shared.rankings(); rankingsUnavailable=false }

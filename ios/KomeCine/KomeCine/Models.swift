@@ -51,6 +51,7 @@ struct RankedMovie: Decodable, Identifiable {
     var id: String { movie.id }
 }
 struct Rankings: Decodable { let series: [RankedMovie]; let movies: [RankedMovie] }
+struct FeaturedPage: Decodable { let items: [RankedMovie] }
 struct FilterItem: Decodable, Identifiable { let name: String; let slug: String; var id: String { slug } }
 struct Filters: Decodable { let categories: [FilterItem]; let countries: [FilterItem] }
 struct WatchProgress: Codable {

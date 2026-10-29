@@ -49,6 +49,10 @@ struct APIClient {
         guard backend != nil else { throw APIError.invalidResponse }
         return try JSONDecoder().decode(Rankings.self, from: await get("/v1/rankings"))
     }
+    func featured() async throws -> [RankedMovie] {
+        guard backend != nil else { throw APIError.invalidResponse }
+        return try JSONDecoder().decode(FeaturedPage.self, from: await get("/v1/featured")).items
+    }
     func resolveRanking(_ item: RankedMovie) async throws -> MovieDetail {
         guard backend != nil, let year = item.movie.year else { throw APIError.unavailable }
         let query = [URLQueryItem(name:"name",value:item.movie.name), URLQueryItem(name:"originName",value:item.movie.originName), URLQueryItem(name:"year",value:String(year)), URLQueryItem(name:"type",value:item.type)]
