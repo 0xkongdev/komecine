@@ -1,6 +1,68 @@
 import XCTest
 
 final class KomeCineUITests: XCTestCase {
+    @MainActor func testPlayerControlsHideRevealAndLock() throws {
+        let app = XCUIApplication()
+        XCUIDevice.shared.orientation = .portrait
+        defer { XCUIDevice.shared.orientation = .portrait }
+        app.launch()
+        app.tabBars.buttons["Khám phá"].tap()
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        search.tap()
+        search.typeText("Xóm Nhỏ")
+        let movie = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Xóm Nhỏ")).firstMatch
+        XCTAssertTrue(movie.waitForExistence(timeout: 30))
+        movie.tap()
+        let play = app.buttons.matching(NSPredicate(format: "label IN %@", ["Xem ngay", "Tiếp tục xem"])).firstMatch
+        XCTAssertTrue(play.waitForExistence(timeout: 30))
+        play.tap()
+        let lock = app.buttons["Khóa player"]
+        XCTAssertTrue(lock.waitForExistence(timeout: 30))
+        let portrait = XCTAttachment(screenshot: app.screenshot())
+        portrait.name = "Player portrait controls"
+        portrait.lifetime = .keepAlways
+        add(portrait)
+
+        let hidden = NSPredicate { _, _ in !lock.exists }
+        let hidesControls = XCTNSPredicateExpectation(predicate: hidden, object: nil)
+        guard XCTWaiter.wait(for: [hidesControls], timeout: 7) == .completed else {
+            XCTFail("Player controls should disappear without interaction")
+            return
+        }
+
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let video = app.descendants(matching: .any).matching(identifier: "Video").firstMatch
+        XCTAssertTrue(video.waitForExistence(timeout: 10))
+        video.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)).tap()
+        XCTAssertTrue(lock.waitForExistence(timeout: 3))
+        lock.tap()
+        let unlock = app.buttons["Mở khóa player"]
+        XCTAssertTrue(unlock.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["Đóng"].exists)
+        XCTAssertFalse(app.buttons["Chọn tập"].exists)
+        expectation(for: NSPredicate { _, _ in !unlock.exists }, evaluatedWith: nil)
+        waitForExpectations(timeout: 7)
+        video.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)).tap()
+        XCTAssertTrue(unlock.waitForExistence(timeout: 3))
+        unlock.tap()
+        XCTAssertTrue(lock.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Đóng"].exists)
+        let landscape = XCTAttachment(screenshot: app.screenshot())
+        landscape.name = "Player landscape controls"
+        landscape.lifetime = .keepAlways
+        add(landscape)
+
+        app.buttons["Chọn tập"].tap()
+        let done = app.buttons["Xong"]
+        XCTAssertTrue(done.waitForExistence(timeout: 3))
+        let pickerDisappears = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !done.exists }, object: nil)
+        pickerDisappears.isInverted = true
+        XCTAssertEqual(XCTWaiter.wait(for: [pickerDisappears], timeout: 4), .completed)
+        done.tap()
+        XCTAssertTrue(lock.waitForExistence(timeout: 3))
+    }
+
     @MainActor func testMovieDetailContentFitsScreen() throws {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
@@ -114,7 +176,10 @@ final class KomeCineUITests: XCTestCase {
         }
         XCTAssertGreaterThan(window.frame.width, window.frame.height, "Simulator should rotate to landscape")
         XCTAssertGreaterThan(video.frame.width, window.frame.width * 0.8, "Video should use most of the landscape screen")
-        XCTAssertTrue(app.buttons["Khóa player"].exists)
+        let hidden = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !app.buttons["Khóa player"].exists }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 5), .completed)
+        video.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)).tap()
+        XCTAssertTrue(app.buttons["Khóa player"].waitForExistence(timeout: 3))
     }
 
     @MainActor func testNavigationAndCatalog() throws {

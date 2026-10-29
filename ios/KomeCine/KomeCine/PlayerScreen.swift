@@ -3,57 +3,64 @@ import AVKit
 
 struct PlayerScreen: View {
     @EnvironmentObject private var playback: PlaybackCoordinator
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @State private var showEpisodes = false
+    @State private var showServers = false
     @State private var controlsLocked = false
+    @State private var controlsVisible = true
+    @State private var interactionID = UUID()
+
+    private var servers: [String] { Array(Set(playback.sources.map(\.server))).sorted() }
+    private var showActions: Bool { controlsVisible && !controlsLocked }
 
     var body: some View {
-        NavigationStack {
-            GeometryReader { geometry in
-                let landscape = geometry.size.width > geometry.size.height
-                Group {
-                    if landscape {
-                        landscapePlayer
-                    } else {
-                        portraitPlayer
-                    }
+        GeometryReader { geometry in
+            let landscape = geometry.size.width > geometry.size.height
+            Group {
+                if landscape {
+                    landscapePlayer
+                } else {
+                    portraitPlayer
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.black.ignoresSafeArea())
-                .toolbar(landscape ? .hidden : .visible, for: .navigationBar)
             }
-            .navigationTitle("Đang phát")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) { Button("Thu nhỏ") { playback.minimize() } }
-                ToolbarItem(placement: .topBarTrailing) { Button("Đóng") { playback.stop() } }
-            }
-            .sheet(isPresented: $showEpisodes) {
-                NavigationStack {
-                    List {
-                        ForEach(Array(Set(playback.sources.map(\.server))).sorted(), id: \.self) { server in
-                            Section(server) {
-                                ForEach(playback.sources.filter { $0.server == server }) { item in
-                                    Button(item.name.isEmpty ? item.slug : item.name) {
-                                        playback.change(to: item)
-                                        showEpisodes = false
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .navigationTitle("Chọn tập")
-                    .toolbar { Button("Xong") { showEpisodes = false } }
-                }
-                .presentationDetents([.medium, .large])
-            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.black.ignoresSafeArea())
         }
         .preferredColorScheme(.dark)
+        .statusBarHidden(!controlsVisible || controlsLocked)
+        .task(id: interactionID) {
+            guard controlsVisible, !showEpisodes, !showServers, !voiceOverEnabled else { return }
+            do { try await Task.sleep(for: .seconds(3)) } catch { return }
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.25)) { controlsVisible = false }
+        }
+        .onChange(of: showEpisodes) { _, _ in revealControls() }
+        .onChange(of: showServers) { _, _ in revealControls() }
+        .onChange(of: voiceOverEnabled) { _, _ in revealControls() }
+        .onChange(of: playback.source?.id) { _, _ in revealControls() }
+        .sheet(isPresented: $showEpisodes) { episodePicker }
+        .confirmationDialog("Chọn server", isPresented: $showServers, titleVisibility: .visible) {
+            ForEach(servers, id: \.self) { server in
+                Button(server == playback.source?.server ? "\(server) ✓" : server) { changeServer(to: server) }
+            }
+        }
+    }
+
+    private func revealControls() {
+        withAnimation(.easeInOut(duration: 0.2)) { controlsVisible = true }
+        interactionID = UUID()
+    }
+
+    private func toggleControls() {
+        guard !voiceOverEnabled else { revealControls(); return }
+        withAnimation(.easeInOut(duration: 0.2)) { controlsVisible.toggle() }
+        interactionID = UUID()
     }
 
     private var video: some View {
         Group {
             if let player = playback.player {
-                SystemPlayer(player: player).allowsHitTesting(!controlsLocked)
+                SystemPlayer(player: player, controlsLocked: controlsLocked, onVideoTap: toggleControls)
             } else {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -61,91 +68,212 @@ struct PlayerScreen: View {
         .background(.black)
     }
 
-    private var lockButton: some View {
-        Button { controlsLocked.toggle() } label: {
-            Image(systemName: controlsLocked ? "lock.fill" : "lock.open")
-                .padding(10).background(.black.opacity(0.65), in: Circle())
+    private func iconButton(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 17, weight: .semibold))
+                .frame(width: 44, height: 44)
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay { Circle().strokeBorder(.white.opacity(0.12), lineWidth: 0.5) }
         }
-        .accessibilityLabel(controlsLocked ? "Mở khóa player" : "Khóa player")
+        .buttonStyle(.plain)
+        .foregroundStyle(.white)
+        .accessibilityLabel(title)
     }
 
-    private var serverMenu: some View {
-        Menu {
-            ForEach(Array(Set(playback.sources.map(\.server))).sorted(), id: \.self) { server in
-                Button(server) {
-                    if let source = playback.source,
-                       let match = playback.sources.first(where: { $0.server == server && $0.slug == source.slug }) {
-                        playback.change(to: match)
-                    } else if let first = playback.sources.first(where: { $0.server == server }) {
-                        playback.change(to: first)
+    private var lockButton: some View {
+        iconButton(controlsLocked ? "Mở khóa player" : "Khóa player", symbol: controlsLocked ? "lock.fill" : "lock.open") {
+            controlsLocked.toggle()
+            revealControls()
+        }
+    }
+
+    private var playerHeader: some View {
+        HStack(spacing: 12) {
+            if !controlsLocked {
+                iconButton("Thu nhỏ", symbol: "chevron.down") { playback.minimize() }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(playback.movie?.name ?? "Đang phát")
+                        .font(.subheadline.weight(.semibold)).lineLimit(1)
+                    if let source = playback.source {
+                        Text("\(source.server) · \(source.name)")
+                            .font(.caption).foregroundStyle(.white.opacity(0.65)).lineLimit(1)
                     }
                 }
+                Spacer(minLength: 8)
+                iconButton("Chọn tập", symbol: "square.stack") { showEpisodes = true }
+                iconButton("Server", symbol: "server.rack") { showServers = true }
+            } else {
+                Spacer()
             }
-        } label: { Label("Server", systemImage: "rectangle.stack") }
+            lockButton
+            if !controlsLocked {
+                iconButton("Đóng", symbol: "xmark") { playback.stop() }
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 20)
+        .padding(.top, 10)
+        .padding(.bottom, 24)
+        .background {
+            if !controlsLocked {
+                LinearGradient(colors: [.black.opacity(0.8), .clear], startPoint: .top, endPoint: .bottom)
+                    .ignoresSafeArea(edges: .top)
+            }
+        }
     }
 
     private var portraitPlayer: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(spacing: 0) {
+            // Reserve the header's height so hiding it never moves the video.
+            HStack {
+                iconButton("Thu nhỏ", symbol: "chevron.down") { playback.minimize() }
+                Spacer()
+                Text("ĐANG PHÁT").font(.caption2.weight(.semibold)).tracking(2).foregroundStyle(.secondary)
+                Spacer()
+                iconButton("Đóng", symbol: "xmark") { playback.stop() }
+            }
+            .padding(.horizontal, 20).padding(.vertical, 8)
+            .opacity(showActions ? 1 : 0)
+            .allowsHitTesting(showActions)
+            .accessibilityHidden(!showActions)
+
             video
                 .aspectRatio(16 / 9, contentMode: .fit)
-                .overlay(alignment: .topTrailing) { lockButton.padding(10) }
+                .overlay(alignment: .topTrailing) {
+                    if controlsVisible { lockButton.padding(12).transition(.opacity) }
+                }
+
             if let movie = playback.movie, let source = playback.source {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(movie.name).font(.title2.bold())
-                    Text("\(source.server) · \(source.name)").foregroundStyle(.secondary)
-                    HStack {
-                        Button { showEpisodes = true } label: { Label("Chọn tập", systemImage: "square.stack") }
-                        serverMenu
-                    }.buttonStyle(.bordered)
-                    if playback.countdown > 0 {
-                        HStack {
-                            Text("Tập tiếp theo sau \(playback.countdown) giây").font(.subheadline)
-                            Spacer()
-                            Button("Hủy") { playback.cancelNext() }
-                        }
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(movie.name).font(.title2.bold())
+                        Text("\(source.server) · \(source.name)").font(.subheadline).foregroundStyle(.secondary)
                     }
-                }.padding(.horizontal, 20)
+                    if !controlsLocked {
+                        HStack(spacing: 12) {
+                            Button { showEpisodes = true } label: {
+                                Label("Chọn tập", systemImage: "square.stack")
+                                    .frame(maxWidth: .infinity, minHeight: 44)
+                            }
+                            .background(Color.accentColor.opacity(0.15), in: RoundedRectangle(cornerRadius: 14))
+                            Button { showServers = true } label: {
+                                Label("Server", systemImage: "server.rack")
+                                    .frame(maxWidth: .infinity, minHeight: 44)
+                            }
+                            .foregroundStyle(.white.opacity(0.85))
+                            .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 14))
+                        }
+                        .font(.subheadline.weight(.semibold)).buttonStyle(.plain)
+                    }
+                    if playback.countdown > 0 { nextEpisodePrompt }
+                }
+                .padding(24)
             }
-            Spacer()
+            Spacer(minLength: 0)
         }
     }
 
     private var landscapePlayer: some View {
         ZStack(alignment: .top) {
             video.ignoresSafeArea()
-            VStack {
-                HStack(spacing: 12) {
-                    Button("Thu nhỏ") { playback.minimize() }
-                    Spacer()
-                    Button { showEpisodes = true } label: { Image(systemName: "square.stack") }
-                        .accessibilityLabel("Chọn tập")
-                    serverMenu.labelStyle(.iconOnly).accessibilityLabel("Server")
-                    lockButton
-                    Button("Đóng") { playback.stop() }
-                }
-                .buttonStyle(.bordered)
-                .padding(.horizontal, 12)
-                .padding(.top, 8)
-                if playback.countdown > 0 {
-                    HStack {
-                        Text("Tập tiếp theo sau \(playback.countdown) giây")
-                        Button("Hủy") { playback.cancelNext() }
-                    }
-                    .padding(8).background(.black.opacity(0.75), in: Capsule())
-                }
-                Spacer()
+            if controlsVisible { playerHeader.transition(.opacity) }
+            if playback.countdown > 0 {
+                VStack { Spacer(); nextEpisodePrompt.padding(.bottom, 85) }
+                    .padding(.horizontal, 24)
             }
         }
+    }
+
+    private var nextEpisodePrompt: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "play.rectangle.on.rectangle").foregroundStyle(Color.accentColor)
+            Text("Tập tiếp theo sau \(playback.countdown) giây").font(.subheadline)
+            Spacer(minLength: 0)
+            Button("Hủy") { playback.cancelNext(); revealControls() }
+                .font(.subheadline.weight(.semibold)).frame(minHeight: 44)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 4)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var episodePicker: some View {
+        NavigationStack {
+            List {
+                ForEach(servers, id: \.self) { server in
+                    Section(server) {
+                        ForEach(playback.sources.filter { $0.server == server }) { item in
+                            Button {
+                                playback.change(to: item)
+                                showEpisodes = false
+                            } label: {
+                                HStack {
+                                    Label(item.name.isEmpty ? item.slug : item.name, systemImage: "play.circle")
+                                    Spacer()
+                                    if item.id == playback.source?.id {
+                                        Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.accentColor)
+                                    }
+                                }.frame(minHeight: 32)
+                            }
+                            .foregroundStyle(item.id == playback.source?.id ? Color.accentColor : .primary)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Chọn tập")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Xong") { showEpisodes = false } } }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func changeServer(to server: String) {
+        let match = playback.sources.first { $0.server == server && $0.slug == playback.source?.slug }
+        if let next = match ?? playback.sources.first(where: { $0.server == server }) { playback.change(to: next) }
     }
 }
 
 struct SystemPlayer: UIViewControllerRepresentable {
     let player: AVPlayer
+    var controlsLocked = false
+    var onVideoTap: () -> Void = {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(onVideoTap: onVideoTap) }
+
     func makeUIViewController(context: Context) -> AVPlayerViewController {
         let controller = AVPlayerViewController()
         controller.player = player
         controller.allowsPictureInPicturePlayback = true
+        controller.showsPlaybackControls = !controlsLocked
+        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.videoTapped))
+        tap.cancelsTouchesInView = false
+        tap.delegate = context.coordinator
+        controller.view.addGestureRecognizer(tap)
         return controller
     }
-    func updateUIViewController(_ controller: AVPlayerViewController, context: Context) { controller.player = player }
+
+    func updateUIViewController(_ controller: AVPlayerViewController, context: Context) {
+        if controller.player !== player { controller.player = player }
+        controller.showsPlaybackControls = !controlsLocked
+        context.coordinator.onVideoTap = onVideoTap
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var onVideoTap: () -> Void
+        init(onVideoTap: @escaping () -> Void) { self.onVideoTap = onVideoTap }
+        @objc func videoTapped() { onVideoTap() }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool { true }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            // Native transport buttons and scrubbing keep their normal touch handling.
+            var view = touch.view
+            while let current = view {
+                if current is UIControl { return false }
+                view = current.superview
+            }
+            return true
+        }
+    }
 }
