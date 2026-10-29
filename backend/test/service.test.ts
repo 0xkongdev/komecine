@@ -44,3 +44,39 @@ test('search forwards category, country and year filters',async()=>{
  await service.search('film',1,{category:'hanh-dong',country:'han-quoc',year:'2024'});
  const u=new URL(requested); assert.equal(u.searchParams.get('category'),'hanh-dong');assert.equal(u.searchParams.get('year'),'2024');
 });
+
+test('rankings select both RoPhim charts and preserve upstream ranking', async () => {
+  const service = new CatalogService(async input => {
+    assert.match(input, /homepageLists\?page=2&limit=4/);
+    return Response.json({status:true,result:{collections:[
+      {slug:'top-phim-bo-hom-nay',movies:[{id:41,name:'Series',origin_name:'Series',slug:'series',type:'series',publish_year:2026,thumbnail:'https://image.example/portrait.jpg',poster:'https://image.example/landscape.jpg'}]},
+      {slug:'top-phim-le-hom-nay',movies:[{id:42,name:'Movie',origin_name:'Movie',slug:'movie',type:'movie',publish_year:2024}]}
+    ],totalPages:4}});
+  });
+  const result = await service.rankings();
+  assert.equal(result.series[0].rank, 1);
+  assert.equal(result.series[0].movie.posterURL, 'https://image.example/portrait.jpg');
+  assert.equal(result.series[0].movie.id, 'rophim:41');
+  assert.equal(result.movies[0].type, 'movie');
+});
+
+test('ranking resolution checks identity and episode availability before returning a match', async () => {
+  const service = new CatalogService(async input => {
+    const url = new URL(input);
+    if (url.pathname.includes('tim-kiem')) return Response.json({status:'success',data:{items:[
+      {slug:'wrong',name:'Wrong',origin_name:'Same title',year:2020,type:'series'},
+      {slug:'right',name:'Right',origin_name:'Same title',year:2026,type:'series'}]}});
+    assert.equal(url.pathname, '/phim/right');
+    return Response.json({status:true,movie:{slug:'right',name:'Right',origin_name:'Same title',year:2026,type:'series'},episodes:[{server_name:'S',server_data:[{slug:'tap-1',name:'1',link_m3u8:'https://example.com/a.m3u8'}]}]});
+  });
+  const found = await service.resolveRanking({name:'Right',originName:'Same title',year:2026,type:'series'});
+  assert.equal(found?.slug,'right');
+  assert.equal(found?.sources.length,1);
+});
+
+test('ranking resolution rejects an unrelated or unplayable result', async () => {
+  const service = new CatalogService(async input => new URL(input).pathname.includes('tim-kiem')
+    ? Response.json({status:'success',data:{items:[{slug:'wrong',name:'Different',origin_name:'Different',year:2026,type:'single'}]}})
+    : Response.json({status:true,movie:{slug:'wrong'},episodes:[]}));
+  assert.equal(await service.resolveRanking({name:'Wanted',originName:'Wanted',year:2026,type:'movie'}),null);
+});

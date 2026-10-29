@@ -2,7 +2,13 @@ import Foundation
 
 enum APIError: LocalizedError {
     case invalidResponse
-    var errorDescription: String? { "Không thể tải dữ liệu phim. Vui lòng thử lại." }
+    case unavailable
+    var errorDescription: String? {
+        switch self {
+        case .invalidResponse: return "Không thể tải dữ liệu phim. Vui lòng thử lại."
+        case .unavailable: return "Phim này hiện chưa có nguồn phát trong KomeCine."
+        }
+    }
 }
 
 struct APIClient {
@@ -17,6 +23,7 @@ struct APIClient {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("KomeCine/1.0", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await URLSession.shared.data(for: request)
+        if (response as? HTTPURLResponse)?.statusCode == 404 { throw APIError.unavailable }
         guard (response as? HTTPURLResponse).map({ (200..<300).contains($0.statusCode) }) == true else { throw APIError.invalidResponse }
         return data
     }
@@ -37,6 +44,15 @@ struct APIClient {
         guard !slug.contains("/"), !slug.isEmpty else { throw APIError.invalidResponse }
         let data=try await get(backend == nil ? "/phim/\(slug)" : "/v1/movies/\(slug)")
         if backend != nil { return try JSONDecoder().decode(MovieDetail.self,from:data) }; return try KKPhimAdapter.decodeDetail(data)
+    }
+    func rankings() async throws -> Rankings {
+        guard backend != nil else { throw APIError.invalidResponse }
+        return try JSONDecoder().decode(Rankings.self, from: await get("/v1/rankings"))
+    }
+    func resolveRanking(_ item: RankedMovie) async throws -> MovieDetail {
+        guard backend != nil, let year = item.movie.year else { throw APIError.unavailable }
+        let query = [URLQueryItem(name:"name",value:item.movie.name), URLQueryItem(name:"originName",value:item.movie.originName), URLQueryItem(name:"year",value:String(year)), URLQueryItem(name:"type",value:item.type)]
+        return try JSONDecoder().decode(MovieDetail.self, from: await get("/v1/rankings/resolve", query: query))
     }
     func filters() async throws -> Filters {
         if backend != nil { return try JSONDecoder().decode(Filters.self,from:await get("/v1/filters")) }

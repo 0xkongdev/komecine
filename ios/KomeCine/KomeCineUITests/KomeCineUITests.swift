@@ -1,6 +1,19 @@
 import XCTest
 
 final class KomeCineUITests: XCTestCase {
+    @MainActor func testRankingsOpenMatchedMovie() throws {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launch()
+        let title = app.staticTexts["Top phim bộ hôm nay"]
+        XCTAssertTrue(title.waitForExistence(timeout: 40))
+        let first = app.buttons["ranking-series-1"]
+        if !first.isHittable { app.swipeUp() }
+        XCTAssertTrue(first.waitForExistence(timeout: 10))
+        first.tap()
+        let watch = app.buttons["Xem ngay"].exists ? app.buttons["Xem ngay"] : app.buttons["Tiếp tục xem"]
+        XCTAssertTrue(watch.waitForExistence(timeout: 30), "A matched ranking should open a playable movie")
+    }
     @MainActor func testHomeContentFitsScreen() throws {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()

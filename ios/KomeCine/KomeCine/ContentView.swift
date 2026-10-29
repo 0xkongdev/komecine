@@ -68,6 +68,56 @@ private struct MovieShelf: View {
     }
 }
 
+private struct RankingShelf: View {
+    let title: String
+    let items: [RankedMovie]
+    var body: some View {
+        if !items.isEmpty {
+            VStack(alignment:.leading,spacing:14) {
+                VStack(alignment:.leading,spacing:4) {
+                    Text(title).font(.title3.bold())
+                    Text("Theo RoPhim · Hôm nay").font(.caption).foregroundStyle(.secondary)
+                }.padding(.horizontal,20)
+                ScrollView(.horizontal,showsIndicators:false) {
+                    LazyHStack(alignment:.top,spacing:12) {
+                        ForEach(items) { item in
+                            NavigationLink { RankingDetailView(item:item) } label: {
+                                VStack(alignment:.leading,spacing:7) {
+                                    ZStack(alignment:.bottomLeading) {
+                                        Poster(url:item.movie.posterURL ?? item.movie.backdropURL).frame(width:122,height:174).clipShape(RoundedRectangle(cornerRadius:10))
+                                        Text(String(item.rank)).font(.system(size:38,weight:.black)).foregroundStyle(.white).shadow(color:.black,radius:4).padding(.leading,7).padding(.bottom,2)
+                                    }
+                                    Text(item.movie.name).font(.system(size:13,weight:.semibold)).lineLimit(2).multilineTextAlignment(.leading).frame(width:122,alignment:.leading)
+                                    if let year=item.movie.year { Text(String(year)).font(.caption2).foregroundStyle(.secondary) }
+                                }.foregroundStyle(.white).frame(width:122,alignment:.topLeading)
+                            }.buttonStyle(.plain).accessibilityIdentifier("ranking-\(item.type)-\(item.rank)")
+                        }
+                    }.padding(.horizontal,20)
+                }
+            }.padding(.top,26)
+        }
+    }
+}
+
+private struct RankingDetailView: View {
+    let item: RankedMovie
+    @State private var detail: MovieDetail?
+    @State private var error: String?
+    var body: some View {
+        Group {
+            if let detail { MovieDetailView(movie:detail.movie, initialDetail:detail) }
+            else if let error {
+                ContentUnavailableView { Label(item.movie.name,systemImage:"film") } description: { Text(error) } actions: { Button("Thử lại") { Task { await load() } } }
+            } else { ProgressView("Đang tìm nguồn phim…") }
+        }.background(Design.background.ignoresSafeArea()).task { await load() }
+    }
+    private func load() async {
+        error=nil
+        do { detail=try await APIClient.shared.resolveRanking(item) }
+        catch { self.error=error.localizedDescription }
+    }
+}
+
 private struct Hero: View {
     let movie: Movie
     let width: CGFloat
@@ -113,6 +163,8 @@ private struct HomeView: View {
     @State private var series:[Movie]=[]
     @State private var movies:[Movie]=[]
     @State private var animation:[Movie]=[]
+    @State private var rankings:Rankings?
+    @State private var rankingsUnavailable=false
     @State private var loading=true
     @State private var error:String?
     var body: some View {
@@ -123,6 +175,11 @@ private struct HomeView: View {
                     else if loading { ProgressView().frame(height:300) }
                     else if let error { ContentUnavailableView { Label("Không tải được phim",systemImage:"wifi.exclamationmark") } description: { Text(error) } actions: { Button("Thử lại") { Task { await load() } } }.frame(height:300) }
                     MovieShelf(title:"Tiếp tục xem",subtitle:"Phim bạn đang theo dõi",movies:library.recent)
+                    RankingShelf(title:"Top phim bộ hôm nay",items:rankings?.series ?? [])
+                    RankingShelf(title:"Top phim lẻ hôm nay",items:rankings?.movies ?? [])
+                    if rankingsUnavailable && rankings == nil {
+                        HStack { Text("Chưa tải được bảng xếp hạng RoPhim.").font(.caption).foregroundStyle(.secondary); Spacer(); Button("Thử lại") { Task { await loadRankings() } }.font(.caption.bold()) }.padding(.horizontal,20).padding(.top,20)
+                    }
                     MovieShelf(title:"Mới cập nhật",subtitle:"Những câu chuyện vừa lên sóng",movies:latest)
                     MovieShelf(title:"Phim bộ",subtitle:"Cuốn hút qua từng tập",movies:series)
                     MovieShelf(title:"Phim lẻ",subtitle:"Chọn một bộ phim cho hôm nay",movies:movies)
@@ -136,11 +193,16 @@ private struct HomeView: View {
     }
     private func load() async {
         loading=true; error=nil
+        async let rankingLoad: Void = loadRankings()
         do { latest=try await APIClient.shared.latest() } catch { self.error=error.localizedDescription }
         async let a = try? APIClient.shared.browse("phim-bo")
         async let b = try? APIClient.shared.browse("phim-le")
         async let c = try? APIClient.shared.browse("hoat-hinh")
-        series = await a ?? []; movies = await b ?? []; animation = await c ?? []; loading=false
+        series = await a ?? []; movies = await b ?? []; animation = await c ?? []; _ = await rankingLoad; loading=false
+    }
+    private func loadRankings() async {
+        do { rankings = try await APIClient.shared.rankings(); rankingsUnavailable=false }
+        catch { rankingsUnavailable=true }
     }
 }
 
@@ -216,6 +278,7 @@ private struct MovieDetailView: View {
     @EnvironmentObject private var playback:PlaybackCoordinator
     @State private var detail:MovieDetail?
     @State private var error:String?
+    init(movie: Movie, initialDetail: MovieDetail? = nil) { self.movie=movie; _detail=State(initialValue:initialDetail) }
     var body: some View {
         ScrollView { VStack(alignment:.leading,spacing:15) {
             ZStack(alignment:.bottom) { Poster(url:movie.backdropURL ?? movie.posterURL).frame(height:260); LinearGradient(colors:[.clear,Design.background],startPoint:.center,endPoint:.bottom) }.frame(height:260)
@@ -240,7 +303,7 @@ private struct MovieDetailView: View {
                 else { ProgressView().frame(maxWidth:.infinity,minHeight:100) }
             }.padding(.horizontal,20)
         }.padding(.bottom,35)}.background(Design.background.ignoresSafeArea()).navigationBarTitleDisplayMode(.inline)
-            .task { await load() }
+            .task { if detail == nil { await load() } }
     }
     private func load() async { error=nil; do { detail=try await APIClient.shared.detail(movie.slug) } catch { self.error=error.localizedDescription } }
     private func resumeSource(_ detail:MovieDetail)->PlaybackSource? { if let progress=library.progress[movie.id], let source=detail.sources.first(where:{$0.slug==progress.episodeSlug && $0.server==progress.server}) { return source }; return detail.sources.first }
