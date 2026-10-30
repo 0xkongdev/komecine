@@ -10,6 +10,7 @@ import Combine
     var onProgressChange: ((WatchProgress) -> Void)?
     private let defaults: UserDefaults
     private var account: String?
+    private var episodeHistory: [String: WatchProgress] = [:]
     private var artworkCandidates: [Movie] = []
     private func key(_ name: String) -> String { (account.map { "user.\($0)." } ?? "guest.") + name }
     init(defaults: UserDefaults = .standard) {
@@ -17,6 +18,7 @@ import Combine
         favorites = Self.decode([Movie].self, defaults.data(forKey: "guest.favorites")) ?? []
         recent = Self.decode([Movie].self, defaults.data(forKey: "guest.recent")) ?? []
         progress = Self.decode([String: WatchProgress].self, defaults.data(forKey: "guest.progress")) ?? [:]
+        episodeHistory = Self.decode([String: WatchProgress].self, defaults.data(forKey: "guest.episodeHistory")) ?? [:]
         posterFallbacks = Self.decode([String: String].self, defaults.data(forKey: "guest.posterFallbacks")) ?? [:]
     }
     private static func decode<T: Decodable>(_ type: T.Type, _ data: Data?) -> T? { guard let data else { return nil }; return try? JSONDecoder().decode(type, from: data) }
@@ -48,21 +50,26 @@ import Combine
         let guestFavorites = account == nil && newAccount != nil ? favorites : []
         let guestRecent = account == nil && newAccount != nil ? recent : []
         let guestProgress = account == nil && newAccount != nil ? progress : [:]
+        let guestEpisodes = account == nil && newAccount != nil ? episodeHistory : [:]
         let guestPosters = account == nil && newAccount != nil ? posterFallbacks : [:]
         account = newAccount
         favorites = Self.decode([Movie].self, defaults.data(forKey:key("favorites"))) ?? []
         recent = Self.decode([Movie].self, defaults.data(forKey:key("recent"))) ?? []
         progress = Self.decode([String:WatchProgress].self, defaults.data(forKey:key("progress"))) ?? [:]
+        episodeHistory = Self.decode([String:WatchProgress].self, defaults.data(forKey:key("episodeHistory"))) ?? [:]
         posterFallbacks = Self.decode([String:String].self, defaults.data(forKey:key("posterFallbacks"))) ?? [:]
         for movie in guestFavorites where !favorites.contains(where: {$0.id == movie.id}) { favorites.append(movie) }
         for movie in guestRecent where !recent.contains(where: {$0.id == movie.id}) { recent.append(movie) }
         for (id, value) in guestProgress { progress[id] = progress[id].map { WatchProgress.mostRecent($0, value) } ?? value }
+        for (id, value) in guestEpisodes { episodeHistory[id] = episodeHistory[id].map { WatchProgress.mostRecent($0, value) } ?? value }
         posterFallbacks.merge(guestPosters) { current, _ in current }
         if newAccount != nil {
             save(favorites,for:"favorites"); save(recent,for:"recent"); save(progress,for:"progress")
+            save(episodeHistory, for:"episodeHistory")
             save(posterFallbacks,for:"posterFallbacks")
             defaults.removeObject(forKey:"guest.favorites"); defaults.removeObject(forKey:"guest.recent"); defaults.removeObject(forKey:"guest.progress")
             defaults.removeObject(forKey:"guest.posterFallbacks")
+            defaults.removeObject(forKey:"guest.episodeHistory")
         }
         refreshPosterFallbacks()
     }
@@ -77,7 +84,7 @@ import Combine
         refreshPosterFallbacks()
     }
     func clearAccount(_ id: String) {
-        for name in ["favorites","recent","progress","posterFallbacks"] { defaults.removeObject(forKey:"user.\(id).\(name)") }
+        for name in ["favorites","recent","progress","posterFallbacks","episodeHistory"] { defaults.removeObject(forKey:"user.\(id).\(name)") }
     }
     func toggleFavorite(_ movie: Movie) {
         if favorites.contains(where: {$0.id == movie.id}) { favorites.removeAll {$0.id == movie.id} } else { favorites.insert(movie, at: 0) }
@@ -89,8 +96,18 @@ import Combine
         guard position.isFinite, duration.isFinite, position >= 0, duration >= 0 else { return }
         recent.removeAll {$0.id == movie.id}; recent.insert(movie, at: 0)
         progress[movie.id] = WatchProgress(movieId:movie.id,episodeSlug:source.slug,server:source.server,position:position,duration:duration,updatedAt:Int64(Date().timeIntervalSince1970 * 1000))
+        episodeHistory[episodeKey(movieID: movie.id, source: source)] = progress[movie.id]
+        save(episodeHistory, for:"episodeHistory")
         save(recent, for:"recent"); save(progress, for:"progress")
         refreshPosterFallbacks()
         if let value=progress[movie.id] {onProgressChange?(value)}
+    }
+    private func episodeKey(movieID: String, source: PlaybackSource) -> String {
+        (try? String(data: JSONEncoder().encode([movieID, source.server, source.slug]), encoding: .utf8)) ?? ""
+    }
+    func episodeProgress(movieID: String, source: PlaybackSource) -> WatchProgress? {
+        if let saved = episodeHistory[episodeKey(movieID: movieID, source: source)] { return saved }
+        guard let latest = progress[movieID], latest.episodeSlug == source.slug, latest.server == source.server else { return nil }
+        return latest
     }
 }

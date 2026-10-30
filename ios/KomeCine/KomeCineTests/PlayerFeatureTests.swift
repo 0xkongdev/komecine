@@ -3,6 +3,38 @@ import Testing
 @testable import KomeCine
 
 struct PlayerFeatureTests {
+    @MainActor @Test func perEpisodeHistorySurvivesWatchingAnotherEpisodeAndAccountChanges() {
+        let defaults = UserDefaults(suiteName: UUID().uuidString)!
+        let library = LocalLibrary(defaults: defaults)
+        let movie = Movie(id:"movie",slug:"movie",name:"Movie",originName:"",posterURL:nil,backdropURL:nil,year:nil)
+        let one = PlaybackSource(server:"S",name:"1",slug:"1",url:"https://example.com/1.m3u8")
+        let two = PlaybackSource(server:"S",name:"2",slug:"2",url:"https://example.com/2.m3u8")
+        library.record(movie, source:one, position:42, duration:100)
+        library.record(movie, source:two, position:12, duration:100)
+        #expect(library.episodeProgress(movieID:"movie", source:one)?.position == 42)
+        #expect(library.progress["movie"]?.episodeSlug == "2")
+        library.setAccount("alice")
+        #expect(library.episodeProgress(movieID:"movie", source:one)?.position == 42)
+        library.setAccount("bob")
+        #expect(library.episodeProgress(movieID:"movie", source:one) == nil)
+        library.setAccount("alice")
+        #expect(library.episodeProgress(movieID:"movie", source:two)?.position == 12)
+    }
+
+    @MainActor @Test func temporaryBoostRestoresChosenSpeedAndRejectsInvalidSpeed() {
+        let playback = PlaybackCoordinator()
+        playback.setSpeed(1.5)
+        playback.beginBoost()
+        #expect(playback.effectiveSpeed == 2)
+        #expect(playback.selectedSpeed == 1.5)
+        playback.endBoost()
+        #expect(playback.effectiveSpeed == 1.5)
+        playback.setSpeed(-1)
+        #expect(playback.selectedSpeed == 1.5)
+        playback.setSpeed(.infinity)
+        #expect(playback.selectedSpeed == 1.5)
+    }
+
     @Test func seekingRejectsInvalidTimelinesAndClampsToVideo() {
         #expect(PlaybackMath.clamp(-10, duration: 100) == 0)
         #expect(PlaybackMath.clamp(150, duration: 100) == 100)
