@@ -1,6 +1,6 @@
 # Player KomeCine theo giao diện WeTV
 
-Ngày: 2026-10-30. Trạng thái: thiết kế đề xuất, chờ người dùng duyệt trước khi sửa mã sản phẩm.
+Ngày: 2026-10-30. Trạng thái: người dùng đã duyệt và yêu cầu tiếp tục triển khai.
 
 ## Mục tiêu và lựa chọn đã thống nhất
 
