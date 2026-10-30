@@ -29,23 +29,54 @@ struct ContentView: View {
 
 private struct Poster: View {
     let url: String?
+    var fallbackURL: String? = nil
+    var alternateURL: String? = nil
+    @State private var image: UIImage?
+    @State private var isLoading = true
+    @State private var attempt = 0
+    private struct Request: Equatable {
+        let url: String?
+        let fallbackURL: String?
+        let alternateURL: String?
+        let attempt: Int
+    }
     var body: some View {
-        AsyncImage(url: url.flatMap(URL.init(string:))) { phase in
-            switch phase {
-            case .success(let image): image.resizable().scaledToFill()
-            default: ZStack { Design.surface; Image(systemName:"film").font(.title2).foregroundStyle(.white.opacity(0.23)) }
+        Group {
+            if let image { Image(uiImage: image).resizable().scaledToFill() }
+            else {
+                ZStack {
+                    Design.surface
+                    if isLoading { ProgressView().tint(.white.opacity(0.5)) }
+                    else {
+                        Image(systemName:"film").font(.title2).foregroundStyle(.white.opacity(0.23))
+                    }
+                }
             }
         }
         .clipped()
+        .contentShape(Rectangle())
+        .overlay(alignment: .bottom) {
+            if image == nil && !isLoading {
+                Button("Tải lại ảnh") { attempt += 1 }
+                    .font(.caption2).foregroundStyle(.white.opacity(0.7)).padding(8)
+            }
+        }
+        .task(id: Request(url: url, fallbackURL: fallbackURL, alternateURL: alternateURL, attempt: attempt)) {
+            image = nil; isLoading = true
+            let loaded = await PosterImageLoader.shared.load(url: url, fallbackURL: fallbackURL, alternateURL: alternateURL)
+            guard !Task.isCancelled else { return }
+            image = loaded; isLoading = false
+        }
     }
 }
 
 private struct MovieCard: View {
     let movie: Movie
+    @EnvironmentObject private var library: LocalLibrary
     var body: some View {
         NavigationLink { MovieDetailView(movie:movie) } label: {
             VStack(alignment:.leading,spacing:7) {
-                Poster(url:movie.posterURL ?? movie.backdropURL).frame(width:122,height:174).clipShape(RoundedRectangle(cornerRadius:10))
+                Poster(url:library.posterFallbacks[movie.id] ?? movie.posterURL, fallbackURL:movie.backdropURL, alternateURL:movie.posterURL).frame(width:122,height:174).clipShape(RoundedRectangle(cornerRadius:10))
                 Text(movie.name).font(.system(size:13,weight:.semibold)).lineLimit(2).multilineTextAlignment(.leading).frame(width:122,alignment:.leading)
                 if let year=movie.year { Text(String(year)).font(.caption2).foregroundStyle(.secondary) }
             }.foregroundStyle(.white).frame(width:122,alignment:.topLeading)
@@ -84,7 +115,7 @@ private struct RankingShelf: View {
                             NavigationLink { RankingDetailView(item:item) } label: {
                                 VStack(alignment:.leading,spacing:7) {
                                     ZStack(alignment:.bottomLeading) {
-                                        Poster(url:item.movie.posterURL ?? item.movie.backdropURL).frame(width:122,height:174).clipShape(RoundedRectangle(cornerRadius:10))
+                                        Poster(url:item.movie.posterURL, fallbackURL:item.movie.backdropURL).frame(width:122,height:174).clipShape(RoundedRectangle(cornerRadius:10))
                                         Text(String(item.rank)).font(.system(size:38,weight:.black)).foregroundStyle(.white).shadow(color:.black,radius:4).padding(.leading,7).padding(.bottom,2)
                                     }
                                     Text(item.movie.name).font(.system(size:13,weight:.semibold)).lineLimit(2).multilineTextAlignment(.leading).frame(width:122,alignment:.leading)
@@ -128,7 +159,7 @@ private struct Hero: View {
     @State private var playbackError: String?
     var body: some View {
         ZStack(alignment:.bottomLeading) {
-            Poster(url:movie.backdropURL ?? movie.posterURL).frame(width:width,height:400).clipped().accessibilityHidden(true)
+            Poster(url:movie.backdropURL, fallbackURL:movie.posterURL).frame(width:width,height:400).clipped().accessibilityHidden(true)
             LinearGradient(colors:[.clear,Design.background.opacity(0.3),Design.background],startPoint:.center,endPoint:.bottom).accessibilityHidden(true)
             VStack(alignment:.leading,spacing:10) {
                 Text("NỔI BẬT HÔM NAY").font(.system(size:10,weight:.bold)).tracking(2).foregroundStyle(Design.accent)
@@ -246,7 +277,9 @@ private struct HomeView: View {
         async let c = try? APIClient.shared.browse("hoat-hinh")
         series = await a ?? []; movies = await b ?? []; animation = await c ?? []
         if let newFeatured = await featuredLoad, !newFeatured.isEmpty { featured=newFeatured }
-        _ = await rankingLoad; loading=false
+        _ = await rankingLoad
+        library.updatePosterFallbacks(from: featured.map(\.movie) + (rankings?.series ?? []).map(\.movie) + (rankings?.movies ?? []).map(\.movie))
+        loading=false
     }
     private func loadRankings() async {
         do { rankings = try await APIClient.shared.rankings(); rankingsUnavailable=false }
@@ -330,7 +363,7 @@ private struct MovieDetailView: View {
     var body: some View {
         GeometryReader { geometry in
         ScrollView { VStack(alignment:.leading,spacing:15) {
-            ZStack(alignment:.bottom) { Poster(url:movie.backdropURL ?? movie.posterURL).frame(width:geometry.size.width,height:260).clipped(); LinearGradient(colors:[.clear,Design.background],startPoint:.center,endPoint:.bottom) }.frame(width:geometry.size.width,height:260)
+            ZStack(alignment:.bottom) { Poster(url:movie.backdropURL, fallbackURL:movie.posterURL).frame(width:geometry.size.width,height:260).clipped(); LinearGradient(colors:[.clear,Design.background],startPoint:.center,endPoint:.bottom) }.frame(width:geometry.size.width,height:260)
             VStack(alignment:.leading,spacing:14) {
                 Text(movie.name).font(.title.bold()); if !movie.originName.isEmpty { Text(movie.originName).foregroundStyle(.secondary) }
                 if let detail {

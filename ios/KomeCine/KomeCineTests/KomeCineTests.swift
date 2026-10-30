@@ -36,6 +36,40 @@ import Foundation
 }
 
 @MainActor struct LocalLibraryTests {
+    @Test func catalogArtworkAppliesToHistoryArrivingAfterHomeLoaded() {
+        let library = LocalLibrary(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        let movie = Movie(id:"kkphim:x",slug:"x",name:"Film",originName:"Original title",posterURL:nil,backdropURL:nil,year:2026)
+        let catalog = Movie(id:"rophim:1",slug:"other",name:"Film",originName:"Original title",posterURL:"https://example.com/poster.jpg",backdropURL:nil,year:2026)
+        let progress = WatchProgress(movieId:movie.id,episodeSlug:"1",server:"S",position:42,duration:100,updatedAt:1)
+        library.updatePosterFallbacks(from:[catalog])
+        library.applyCloud(favorites:[],progress:[progress],movies:[movie.id:movie])
+        #expect(library.posterFallbacks[movie.id] == "https://example.com/poster.jpg")
+        library.setAccount("another-account")
+        library.toggleFavorite(movie)
+        #expect(library.posterFallbacks[movie.id] == "https://example.com/poster.jpg")
+    }
+
+    @Test func matchesAndPersistsAlternateArtworkWithoutChangingWatchHistory() {
+        let defaults = UserDefaults(suiteName: UUID().uuidString)!
+        let library = LocalLibrary(defaults: defaults)
+        let movie = Movie(id:"kkphim:love",slug:"love",name:"Yêu một người khác",originName:"A Love Other Than Yours",posterURL:"https://slow.example/poster.webp",backdropURL:nil,year:2026)
+        let source = PlaybackSource(server:"S",name:"1",slug:"1",url:"https://example.com/1.m3u8")
+        library.record(movie,source:source,position:42,duration:100)
+        let otherYear = Movie(id:"rophim:old",slug:"old",name:"Same title",originName:"A Love Other Than Yours",posterURL:"https://example.com/wrong.jpg",backdropURL:nil,year:2025)
+        let matching = Movie(id:"rophim:50384",slug:"other-slug",name:"Other display title",originName:"A Love Other than Yours",posterURL:nil,backdropURL:"https://example.com/correct.jpg",year:2026)
+        library.updatePosterFallbacks(from:[otherYear])
+        #expect(library.posterFallbacks.isEmpty)
+        library.updatePosterFallbacks(from:[otherYear,matching])
+        #expect(library.posterFallbacks[movie.id] == "https://example.com/correct.jpg")
+        #expect(library.recent == [movie])
+        #expect(library.progress[movie.id]?.position == 42)
+        #expect(LocalLibrary(defaults:defaults).posterFallbacks[movie.id] == "https://example.com/correct.jpg")
+        library.setAccount("alice")
+        #expect(library.posterFallbacks[movie.id] == "https://example.com/correct.jpg")
+        library.setAccount("bob")
+        #expect(library.posterFallbacks.isEmpty)
+    }
+
     @Test func favoritesCanBeAddedAndRemoved() {
         let defaults = UserDefaults(suiteName: UUID().uuidString)!
         let library = LocalLibrary(defaults: defaults)
