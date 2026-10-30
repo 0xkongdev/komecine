@@ -20,11 +20,38 @@ struct ContentView: View {
             NavigationStack { LibraryView() }.tabItem { Label("Thư viện", systemImage:"square.stack.fill") }
         }
         .environmentObject(library).environmentObject(auth).environmentObject(sync).environmentObject(playback).environmentObject(downloads).tint(Design.accent).preferredColorScheme(.dark)
-            .overlay(alignment:.bottom) { if let movie=playback.movie,playback.player != nil && !playback.isExpanded { HStack { Button {playback.expand()} label: { HStack { Image(systemName:"play.rectangle.fill"); VStack(alignment:.leading) {Text(movie.name).lineLimit(1).font(.caption.bold());Text("Đang phát").font(.caption2).foregroundStyle(.secondary)}; Spacer() } }; Button {playback.stop()} label: {Image(systemName:"xmark").padding(10)} }.padding(.horizontal,12).padding(.vertical,8).background(Design.surface,in:RoundedRectangle(cornerRadius:10)).padding(.horizontal,8).padding(.bottom,52) } }
+            .overlay(alignment:.bottom) {
+                if playback.movie != nil, playback.player != nil, !playback.isExpanded { PlayerMiniBar().padding(.horizontal,8).padding(.bottom,52) }
+            }
             .fullScreenCover(isPresented:$playback.isExpanded) { PlayerScreen().environmentObject(playback).environmentObject(library).environmentObject(downloads) }
-            .onAppear { sync.configure(library:library,auth:auth); playback.configure(library:library,sync:sync); downloads.setAccount(auth.userID); downloads.restoreTasks(); playback.offlineURL = { [weak downloads = downloads] movie, source in downloads?.localURL(movie:movie,source:source) }; if auth.token != nil { sync.activate(auth.userID,previousID:nil) } }
+            .onAppear { sync.configure(library:library,auth:auth); playback.configure(library:library,sync:sync); downloads.setAccount(auth.userID); downloads.restoreTasks(); playback.offlineURL = { [weak downloads = downloads] movie, source in downloads?.localURL(movie:movie,source:source) }; if auth.token != nil { sync.activate(auth.userID,previousID:nil) }
+                #if DEBUG
+                PlayerDebugPreview.openIfRequested(playback)
+                #endif
+            }
             .onChange(of: auth.userID) { oldValue, newValue in playback.stop(); downloads.setAccount(newValue); sync.activate(newValue,previousID:oldValue) }
             .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await sync.synchronize() } } else if phase == .background { sync.saveProgressNow() } }
+    }
+}
+
+
+private struct PlayerMiniBar: View {
+    @EnvironmentObject private var playback: PlaybackCoordinator
+    var body: some View {
+        HStack(spacing:8) {
+            Button { playback.expand() } label: {
+                HStack(spacing:10) {
+                    PlayerSurface(presentation:playback.presentation,player:playback.player).frame(width:76,height:44).clipShape(RoundedRectangle(cornerRadius:6)).allowsHitTesting(false)
+                    VStack(alignment:.leading,spacing:3) {
+                        Text(playback.movie?.name ?? "").lineLimit(1).font(.caption.bold())
+                        Text(playback.source?.name ?? "").font(.caption2).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength:0)
+                }
+            }.accessibilityIdentifier("mini.expand").buttonStyle(.plain)
+            Button { playback.togglePlayback() } label: { Image(systemName:playback.isPlaying ? "pause.fill" : "play.fill").frame(width:44,height:44) }.accessibilityLabel(playback.isPlaying ? "Tạm dừng" : "Phát").accessibilityIdentifier("mini.play")
+            Button { playback.stop() } label: { Image(systemName:"xmark").frame(width:44,height:44) }.accessibilityLabel("Đóng").accessibilityIdentifier("mini.close")
+        }.padding(8).background(Design.surface,in:RoundedRectangle(cornerRadius:12))
     }
 }
 

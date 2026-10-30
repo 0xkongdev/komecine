@@ -42,6 +42,13 @@ struct PlayerMediaTrack: Identifiable {
     }
     var movieDescription = ""
     let subtitles = SubtitleController()
+    lazy var presentation: PlayerPresentation = {
+        let value = PlayerPresentation()
+        value.onPiPChange = { [weak self] active in self?.isInPiP = active }
+        value.onRestore = { [weak self] in self?.expand() }
+        return value
+    }()
+    @Published var volume: Float = 1 { didSet { player?.volume = volume } }
     var offlineURL: ((Movie, PlaybackSource) -> URL?)?
     private weak var library: LocalLibrary?
     private weak var sync: CloudSync?
@@ -70,7 +77,7 @@ struct PlayerMediaTrack: Identifiable {
         introSkipSeconds = UserDefaults.standard.double(forKey:"player.intro.\(movie.id)")
         start(source, resume: savedPosition(movie:movie, source:source)); isExpanded = true
     }
-    func minimize() { endBoost(); save(); sync?.saveProgressNow(); isExpanded = false }
+    func minimize() { presentation.setLandscape(false); presentation.restoreBrightness(); endBoost(); save(); sync?.saveProgressNow(); isExpanded = false }
     func expand() { if player != nil { isExpanded = true } }
     func change(to next: PlaybackSource) {
         guard let movie else { return }
@@ -87,7 +94,7 @@ struct PlayerMediaTrack: Identifiable {
     }
     func cancelNext() { nextTask?.cancel(); nextTask = nil; countdown = 0 }
     func stop() {
-        endBoost(); cancelNext(); finishItem(); sync?.saveProgressNow()
+        presentation.stopPiP(); presentation.setLandscape(false); presentation.restoreBrightness(); endBoost(); cancelNext(); finishItem(); sync?.saveProgressNow()
         player?.pause(); player = nil; isExpanded = false; movie = nil; source = nil; sources = []
         isPlaying = false; wantsToPlay = false; position = 0; duration = 0; error = nil
     }
@@ -162,7 +169,7 @@ struct PlayerMediaTrack: Identifiable {
         let item = AVPlayerItem(url:url)
         let output = AVPlayerItemVideoOutput(pixelBufferAttributes:[kCVPixelBufferPixelFormatTypeKey as String:kCVPixelFormatType_32BGRA])
         item.add(output); imageOutput = output
-        let p = player ?? AVPlayer(); player = p; p.replaceCurrentItem(with:item)
+        let p = player ?? AVPlayer(); player = p; p.replaceCurrentItem(with:item); p.volume = volume
         let session = token
         observations = [
             item.observe(\.status, options:[.initial, .new]) { [weak self] item, _ in
