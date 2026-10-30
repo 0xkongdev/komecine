@@ -1,6 +1,52 @@
 import XCTest
 
 final class KomeCineUITests: XCTestCase {
+    @MainActor func testFullscreenButtonRotatesWithoutTurningDevice() throws {
+        XCUIDevice.shared.orientation = .portrait
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let app = XCUIApplication()
+        app.launch()
+        app.tabBars.buttons["Khám phá"].tap()
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        search.tap()
+        search.typeText("Xóm Nhỏ")
+        let movie = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Xóm Nhỏ")).firstMatch
+        XCTAssertTrue(movie.waitForExistence(timeout: 30))
+        movie.tap()
+        let play = app.buttons.matching(NSPredicate(format: "label IN %@", ["Xem ngay", "Tiếp tục xem"])).firstMatch
+        XCTAssertTrue(play.waitForExistence(timeout: 30))
+        play.tap()
+        XCTAssertTrue(app.buttons["Khóa player"].waitForExistence(timeout: 30))
+        let video = app.descendants(matching: .any).matching(identifier: "Video").firstMatch
+        XCTAssertTrue(video.waitForExistence(timeout: 10))
+        video.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)).tap()
+        let fullscreen = app.buttons.matching(NSPredicate(format:
+            "label CONTAINS[c] 'full' OR label CONTAINS[c] 'toàn màn hình'"
+        )).firstMatch
+        XCTAssertTrue(fullscreen.waitForExistence(timeout: 20), app.debugDescription)
+        fullscreen.tap()
+        let window = app.windows.firstMatch
+        let landscape = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            window.frame.width > window.frame.height
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [landscape], timeout: 10), .completed,
+                       "Fullscreen must rotate to landscape while the device stays portrait")
+        let exit = app.buttons.matching(NSPredicate(format:
+            "label CONTAINS[c] 'full' OR label CONTAINS[c] 'toàn màn hình' OR label IN %@", ["Done", "Close", "Xong", "Đóng"]
+        )).firstMatch
+        if !exit.isHittable {
+            window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)).tap()
+        }
+        XCTAssertTrue(exit.waitForExistence(timeout: 5), app.debugDescription)
+        exit.tap()
+        let portrait = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            window.frame.height > window.frame.width
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [portrait], timeout: 10), .completed,
+                       "Leaving fullscreen must restore the original portrait orientation")
+    }
+
     @MainActor func testPlayerControlsHideRevealAndLock() throws {
         let app = XCUIApplication()
         XCUIDevice.shared.orientation = .portrait

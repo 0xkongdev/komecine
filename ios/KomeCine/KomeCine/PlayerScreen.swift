@@ -9,13 +9,15 @@ struct PlayerScreen: View {
     @State private var controlsLocked = false
     @State private var controlsVisible = true
     @State private var interactionID = UUID()
+    @State private var fullscreenLayoutIsLandscape: Bool?
 
     private var servers: [String] { Array(Set(playback.sources.map(\.server))).sorted() }
     private var showActions: Bool { controlsVisible && !controlsLocked }
 
     var body: some View {
         GeometryReader { geometry in
-            let landscape = geometry.size.width > geometry.size.height
+            // Keep the embedded controller mounted while AVKit presents fullscreen.
+            let landscape = fullscreenLayoutIsLandscape ?? (geometry.size.width > geometry.size.height)
             Group {
                 if landscape {
                     landscapePlayer
@@ -60,7 +62,8 @@ struct PlayerScreen: View {
     private var video: some View {
         Group {
             if let player = playback.player {
-                SystemPlayer(player: player, controlsLocked: controlsLocked, onVideoTap: toggleControls)
+                SystemPlayer(player: player, controlsLocked: controlsLocked, onVideoTap: toggleControls,
+                             onFullscreenLayoutChange: { fullscreenLayoutIsLandscape = $0 })
             } else {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -238,11 +241,15 @@ struct SystemPlayer: UIViewControllerRepresentable {
     let player: AVPlayer
     var controlsLocked = false
     var onVideoTap: () -> Void = {}
+    var onFullscreenLayoutChange: (Bool?) -> Void = { _ in }
 
-    func makeCoordinator() -> Coordinator { Coordinator(onVideoTap: onVideoTap) }
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onVideoTap: onVideoTap, onFullscreenLayoutChange: onFullscreenLayoutChange)
+    }
 
     func makeUIViewController(context: Context) -> AVPlayerViewController {
         let controller = AVPlayerViewController()
+        controller.delegate = context.coordinator
         controller.player = player
         controller.allowsPictureInPicturePlayback = true
         controller.showsPlaybackControls = !controlsLocked
@@ -257,12 +264,58 @@ struct SystemPlayer: UIViewControllerRepresentable {
         if controller.player !== player { controller.player = player }
         controller.showsPlaybackControls = !controlsLocked
         context.coordinator.onVideoTap = onVideoTap
+        context.coordinator.onFullscreenLayoutChange = onFullscreenLayoutChange
     }
 
-    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate, AVPlayerViewControllerDelegate {
         var onVideoTap: () -> Void
-        init(onVideoTap: @escaping () -> Void) { self.onVideoTap = onVideoTap }
+        var onFullscreenLayoutChange: (Bool?) -> Void
+        private var orientationBeforeFullscreen: UIInterfaceOrientation = .portrait
+        private weak var fullscreenScene: UIWindowScene?
+
+        init(onVideoTap: @escaping () -> Void, onFullscreenLayoutChange: @escaping (Bool?) -> Void) {
+            self.onVideoTap = onVideoTap
+            self.onFullscreenLayoutChange = onFullscreenLayoutChange
+        }
         @objc func videoTapped() { onVideoTap() }
+
+        func playerViewController(_ playerViewController: AVPlayerViewController,
+                                  willBeginFullScreenPresentationWithAnimationCoordinator coordinator: UIViewControllerTransitionCoordinator) {
+            guard let scene = playerViewController.view.window?.windowScene else { return }
+            fullscreenScene = scene
+            orientationBeforeFullscreen = scene.interfaceOrientation
+            onFullscreenLayoutChange(orientationBeforeFullscreen.isLandscape)
+            coordinator.animate(alongsideTransition: nil) { [weak self] context in
+                guard let self else { return }
+                guard !context.isCancelled else {
+                    self.onFullscreenLayoutChange(nil)
+                    return
+                }
+                self.requestOrientation(.landscape, in: scene)
+            }
+        }
+
+        func playerViewController(_ playerViewController: AVPlayerViewController,
+                                  willEndFullScreenPresentationWithAnimationCoordinator coordinator: UIViewControllerTransitionCoordinator) {
+            coordinator.animate(alongsideTransition: nil) { [weak self] context in
+                guard let self, !context.isCancelled else { return }
+                let orientation: UIInterfaceOrientationMask
+                switch self.orientationBeforeFullscreen {
+                case .landscapeLeft: orientation = .landscapeLeft
+                case .landscapeRight: orientation = .landscapeRight
+                case .portraitUpsideDown: orientation = .portraitUpsideDown
+                default: orientation = .portrait
+                }
+                if let scene = self.fullscreenScene { self.requestOrientation(orientation, in: scene) }
+                self.onFullscreenLayoutChange(nil)
+                self.fullscreenScene = nil
+            }
+        }
+
+        private func requestOrientation(_ orientations: UIInterfaceOrientationMask, in scene: UIWindowScene) {
+            scene.windows.forEach { $0.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations() }
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: orientations))
+        }
 
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool { true }
 

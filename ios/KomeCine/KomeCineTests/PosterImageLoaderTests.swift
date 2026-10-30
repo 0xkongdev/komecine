@@ -1,8 +1,54 @@
 import Testing
 import UIKit
+import SwiftUI
 @testable import KomeCine
 
 @MainActor struct PosterImageLoaderTests {
+    @Test func offscreenPosterWaitsUntilScrolledIntoView() async throws {
+        let visible = PosterImageProtocol.route([.image])
+        let offscreen = PosterImageProtocol.route([.image])
+        let loader = loader()
+        let host = UIHostingController(rootView: ScrollView {
+            VStack {
+                Poster(url: visible, loadsWhenVisible: true, loader: loader).frame(width: 122, height: 174)
+                Color.clear.frame(height: 800)
+                Poster(url: offscreen, loadsWhenVisible: true, loader: loader).frame(width: 122, height: 174)
+            }
+        })
+        let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let previousWindow = scene.keyWindow
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 320, height: 480)
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+            previousWindow?.makeKey()
+        }
+        host.view.layoutIfNeeded()
+        for _ in 0..<100 where PosterImageProtocol.requests(visible) == 0 {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(PosterImageProtocol.requests(visible) == 1)
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(PosterImageProtocol.requests(offscreen) == 0, "Creating an offscreen poster must not start a download")
+
+        func scrollView(in view: UIView) -> UIScrollView? {
+            if let scroll = view as? UIScrollView { return scroll }
+            return view.subviews.lazy.compactMap { scrollView(in: $0) }.first
+        }
+        let scroll = try #require(scrollView(in: host.view))
+        scroll.setContentOffset(CGPoint(x: 0, y: scroll.contentSize.height - scroll.bounds.height), animated: false)
+        for _ in 0..<100 where PosterImageProtocol.requests(offscreen) == 0 {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(PosterImageProtocol.requests(offscreen) == 1, "Scrolling the poster into view must start its download")
+        scroll.setContentOffset(.zero, animated: false)
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(PosterImageProtocol.requests(visible) == 1, "Returning to a loaded poster must reuse its image")
+    }
+
     private func loader() -> PosterImageLoader {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [PosterImageProtocol.self]

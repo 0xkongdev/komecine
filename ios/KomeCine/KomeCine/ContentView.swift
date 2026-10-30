@@ -27,20 +27,29 @@ struct ContentView: View {
     }
 }
 
-private struct Poster: View {
+struct Poster: View {
     let url: String?
     var fallbackURL: String? = nil
     var alternateURL: String? = nil
+    var loadsWhenVisible = false
+    var loader = PosterImageLoader.shared
     @State private var image: UIImage?
     @State private var isLoading = true
     @State private var attempt = 0
+    @State private var isVisible = false
+    @State private var loadedRequest: Request?
     private struct Request: Equatable {
         let url: String?
         let fallbackURL: String?
         let alternateURL: String?
         let attempt: Int
     }
+    private var request: Request {
+        Request(url: url, fallbackURL: fallbackURL, alternateURL: alternateURL, attempt: attempt)
+    }
+    private var shouldLoad: Bool { !loadsWhenVisible || isVisible }
     var body: some View {
+        let taskRequest = shouldLoad ? request : nil
         Group {
             if let image { Image(uiImage: image).resizable().scaledToFill() }
             else {
@@ -61,22 +70,32 @@ private struct Poster: View {
                     .font(.caption2).foregroundStyle(.white.opacity(0.7)).padding(8)
             }
         }
-        .task(id: Request(url: url, fallbackURL: fallbackURL, alternateURL: alternateURL, attempt: attempt)) {
-            image = nil; isLoading = true
-            let loaded = await PosterImageLoader.shared.load(url: url, fallbackURL: fallbackURL, alternateURL: alternateURL)
+        .onGeometryChange(for: Bool.self) { geometry in
+            guard loadsWhenVisible else { return true }
+            guard let viewport = geometry.bounds(of: .scrollView) else { return false }
+            let intersection = CGRect(origin: .zero, size: geometry.size).intersection(viewport)
+            return !intersection.isNull && intersection.width > 0 && intersection.height > 0
+        } action: { isVisible = $0 }
+        .task(id: taskRequest) {
+            // Lazy containers can create offscreen views before they become visible.
+            guard let request = taskRequest, !Task.isCancelled, loadedRequest != request else { return }
+            image = nil; loadedRequest = nil; isLoading = true
+            let loaded = await loader.load(url: request.url, fallbackURL: request.fallbackURL, alternateURL: request.alternateURL)
             guard !Task.isCancelled else { return }
             image = loaded; isLoading = false
+            if loaded != nil { loadedRequest = request }
         }
     }
 }
 
 private struct MovieCard: View {
     let movie: Movie
+    var loadsPosterWhenVisible = false
     @EnvironmentObject private var library: LocalLibrary
     var body: some View {
         NavigationLink { MovieDetailView(movie:movie) } label: {
             VStack(alignment:.leading,spacing:7) {
-                Poster(url:library.posterFallbacks[movie.id] ?? movie.posterURL, fallbackURL:movie.backdropURL, alternateURL:movie.posterURL).frame(width:122,height:174).clipShape(RoundedRectangle(cornerRadius:10))
+                Poster(url:library.posterFallbacks[movie.id] ?? movie.posterURL, fallbackURL:movie.backdropURL, alternateURL:movie.posterURL, loadsWhenVisible:loadsPosterWhenVisible).frame(width:122,height:174).clipShape(RoundedRectangle(cornerRadius:10))
                 Text(movie.name).font(.system(size:13,weight:.semibold)).lineLimit(2).multilineTextAlignment(.leading).frame(width:122,alignment:.leading)
                 if let year=movie.year { Text(String(year)).font(.caption2).foregroundStyle(.secondary) }
             }.foregroundStyle(.white).frame(width:122,alignment:.topLeading)
@@ -313,7 +332,7 @@ private struct SearchView: View {
                 if loading && results.isEmpty { ProgressView().frame(maxWidth:.infinity,minHeight:180) }
                 else if let error { ContentUnavailableView("Không thể tải phim",systemImage:"wifi.exclamationmark",description:Text(error)) }
                 else if results.isEmpty { ContentUnavailableView("Chưa có kết quả",systemImage:"magnifyingglass",description:Text("Thử một từ khóa hoặc bộ lọc khác.")) }
-                LazyVGrid(columns:columns,alignment:.leading,spacing:20) { ForEach(results) { MovieCard(movie:$0) } }
+                LazyVGrid(columns:columns,alignment:.leading,spacing:20) { ForEach(results) { MovieCard(movie:$0,loadsPosterWhenVisible:true) } }
                 if !results.isEmpty { Button("Xem thêm") { let generation=searchGeneration; Task { await loadMore(generation:generation) } }.frame(maxWidth:.infinity).padding().disabled(loading) }
             }.padding(.horizontal,20).padding(.bottom,30)
         }.background(Design.background.ignoresSafeArea()).navigationTitle("Khám phá").navigationBarTitleDisplayMode(.inline)
