@@ -11,6 +11,7 @@ struct ContentView: View {
     @StateObject private var auth = AuthManager()
     @StateObject private var sync = CloudSync()
     @StateObject private var playback = PlaybackCoordinator()
+    @StateObject private var downloads = OfflineDownloads.shared
     @Environment(\.scenePhase) private var scenePhase
     var body: some View {
         TabView {
@@ -18,11 +19,11 @@ struct ContentView: View {
             NavigationStack { SearchView() }.tabItem { Label("Khám phá", systemImage:"magnifyingglass") }
             NavigationStack { LibraryView() }.tabItem { Label("Thư viện", systemImage:"square.stack.fill") }
         }
-        .environmentObject(library).environmentObject(auth).environmentObject(sync).environmentObject(playback).tint(Design.accent).preferredColorScheme(.dark)
+        .environmentObject(library).environmentObject(auth).environmentObject(sync).environmentObject(playback).environmentObject(downloads).tint(Design.accent).preferredColorScheme(.dark)
             .overlay(alignment:.bottom) { if let movie=playback.movie,playback.player != nil && !playback.isExpanded { HStack { Button {playback.expand()} label: { HStack { Image(systemName:"play.rectangle.fill"); VStack(alignment:.leading) {Text(movie.name).lineLimit(1).font(.caption.bold());Text("Đang phát").font(.caption2).foregroundStyle(.secondary)}; Spacer() } }; Button {playback.stop()} label: {Image(systemName:"xmark").padding(10)} }.padding(.horizontal,12).padding(.vertical,8).background(Design.surface,in:RoundedRectangle(cornerRadius:10)).padding(.horizontal,8).padding(.bottom,52) } }
-            .fullScreenCover(isPresented:$playback.isExpanded) { PlayerScreen().environmentObject(playback) }
-            .onAppear { sync.configure(library:library,auth:auth); playback.configure(library:library,sync:sync); if auth.token != nil { sync.activate(auth.userID,previousID:nil) } }
-            .onChange(of: auth.userID) { oldValue, newValue in sync.activate(newValue,previousID:oldValue) }
+            .fullScreenCover(isPresented:$playback.isExpanded) { PlayerScreen().environmentObject(playback).environmentObject(library).environmentObject(downloads) }
+            .onAppear { sync.configure(library:library,auth:auth); playback.configure(library:library,sync:sync); downloads.setAccount(auth.userID); downloads.restoreTasks(); playback.offlineURL = { [weak downloads = downloads] movie, source in downloads?.localURL(movie:movie,source:source) }; if auth.token != nil { sync.activate(auth.userID,previousID:nil) } }
+            .onChange(of: auth.userID) { oldValue, newValue in playback.stop(); downloads.setAccount(newValue); sync.activate(newValue,previousID:oldValue) }
             .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await sync.synchronize() } } else if phase == .background { sync.saveProgressNow() } }
     }
 }
@@ -209,7 +210,7 @@ private struct Hero: View {
             let progress = library.progress[playableMovie.id]
             let source = detail.sources.first { $0.slug == progress?.episodeSlug && $0.server == progress?.server } ?? detail.sources.first
             guard let source else { playbackError = "Phim này hiện chưa có nguồn phát."; return }
-            playback.open(movie:playableMovie,source:source,sources:detail.sources)
+            playback.open(movie:playableMovie,source:source,sources:detail.sources,description:detail.description)
         } catch { playbackError = error.localizedDescription }
     }
 }
@@ -364,6 +365,7 @@ private struct LibraryView: View {
         ScrollView { VStack(alignment:.leading,spacing:0) {
             Text("Thư viện của bạn").font(.largeTitle.bold()).padding(.horizontal,20).padding(.top,12)
             Text("Mọi câu chuyện bạn muốn giữ lại.").font(.subheadline).foregroundStyle(.secondary).padding(.horizontal,20).padding(.top,5)
+            NavigationLink { DownloadsView() } label: { Label("Tải xuống", systemImage:"arrow.down.circle").font(.headline).frame(maxWidth:.infinity, alignment:.leading).padding(18).background(Design.surface, in:RoundedRectangle(cornerRadius:14)) }.padding(20)
             MovieShelf(title:"Tiếp tục xem",subtitle:"Quay lại nơi bạn dừng",movies:library.recent)
             MovieShelf(title:"Yêu thích",subtitle:"Danh sách dành riêng cho bạn",movies:library.favorites)
             if library.recent.isEmpty && library.favorites.isEmpty { ContentUnavailableView("Thư viện còn trống",systemImage:"heart",description:Text("Lưu phim yêu thích hoặc bắt đầu xem để tìm lại tại đây.")) }
@@ -388,7 +390,7 @@ private struct MovieDetailView: View {
                 if let detail {
                     Text(([detail.quality,detail.language,detail.duration]+detail.categories).filter{!$0.isEmpty}.joined(separator:"  ·  ")).font(.caption).foregroundStyle(.secondary)
                     HStack {
-                        Button { if let source=resumeSource(detail) {playback.open(movie:movie,source:source,sources:detail.sources)} } label: { Label(library.progress[movie.id] == nil ? "Xem ngay" : "Tiếp tục xem",systemImage:"play.fill").font(.headline).frame(maxWidth:.infinity).padding(13).background(Design.accent,in:RoundedRectangle(cornerRadius:10)).foregroundStyle(.black) }.disabled(detail.sources.isEmpty)
+                        Button { if let source=resumeSource(detail) {playback.open(movie:movie,source:source,sources:detail.sources,description:detail.description)} } label: { Label(library.progress[movie.id] == nil ? "Xem ngay" : "Tiếp tục xem",systemImage:"play.fill").font(.headline).frame(maxWidth:.infinity).padding(13).background(Design.accent,in:RoundedRectangle(cornerRadius:10)).foregroundStyle(.black) }.disabled(detail.sources.isEmpty)
                         Button { library.toggleFavorite(movie) } label: { Image(systemName:library.favorites.contains(where:{$0.id==movie.id}) ? "heart.fill" : "heart").font(.title3).frame(width:48,height:48).background(Design.surface,in:RoundedRectangle(cornerRadius:10)) }
                     }
                     if !detail.description.isEmpty { Text(detail.description.replacingOccurrences(of:"<[^>]+>",with:"",options:.regularExpression)).font(.subheadline).foregroundStyle(.secondary).lineSpacing(4) }
@@ -397,7 +399,7 @@ private struct MovieDetailView: View {
                     ForEach(Array(Set(detail.sources.map(\.server))).sorted(),id:\.self) { server in
                         Text(server).font(.subheadline.bold()).foregroundStyle(Design.accent)
                         LazyVGrid(columns:[GridItem(.adaptive(minimum:76))],spacing:8) {
-                            ForEach(detail.sources.filter{$0.server==server}) { source in Button(source.name.isEmpty ? source.slug : source.name) { playback.open(movie:movie,source:source,sources:detail.sources) }.font(.caption.bold()).frame(maxWidth:.infinity,minHeight:42).background(Design.surface,in:RoundedRectangle(cornerRadius:8)) }
+                            ForEach(detail.sources.filter{$0.server==server}) { source in Button(source.name.isEmpty ? source.slug : source.name) { playback.open(movie:movie,source:source,sources:detail.sources,description:detail.description) }.font(.caption.bold()).frame(maxWidth:.infinity,minHeight:42).background(Design.surface,in:RoundedRectangle(cornerRadius:8)) }
                         }
                     }
                 } else if let error { Text(error).foregroundStyle(.secondary); Button("Thử lại") { Task { await load() } } }

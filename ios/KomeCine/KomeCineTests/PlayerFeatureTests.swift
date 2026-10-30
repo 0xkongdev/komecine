@@ -3,6 +3,31 @@ import Testing
 @testable import KomeCine
 
 struct PlayerFeatureTests {
+    @MainActor @Test func downloadsMigrateGuestOnceAndFilterOldOwnerCallbacks() {
+        let defaults = UserDefaults(suiteName:UUID().uuidString)!
+        let manager = OfflineDownloads(defaults:defaults)
+        let movie = Movie(id:"movie",slug:"movie",name:"Movie",originName:"",posterURL:nil,backdropURL:nil,year:nil)
+        let source = PlaybackSource(server:"S",name:"1",slug:"1",url:"https://example.com/1.m3u8")
+        let record = DownloadRecord(movie:movie, source:source, owner:"guest")
+        manager.store(record)
+        manager.setAccount("alice")
+        #expect(manager.records.count == 1)
+        manager.setAccount("bob")
+        #expect(manager.records.isEmpty)
+        manager.updateProgress(id:record.id, fraction:2)
+        #expect(manager.records.isEmpty)
+        manager.setAccount("alice")
+        #expect(manager.records.first?.progress == 1)
+        manager.updateProgress(id:record.id, fraction:0.2)
+        #expect(manager.records.first?.progress == 1)
+        #expect(manager.localURL(movie:movie, source:source) == nil)
+        let restored = OfflineDownloads(defaults:defaults)
+        restored.setAccount("alice")
+        #expect(restored.records.first?.id == record.id)
+        restored.setAccount(nil)
+        #expect(restored.records.isEmpty)
+    }
+
     @MainActor @Test func perEpisodeHistorySurvivesWatchingAnotherEpisodeAndAccountChanges() {
         let defaults = UserDefaults(suiteName: UUID().uuidString)!
         let library = LocalLibrary(defaults: defaults)
