@@ -23,12 +23,13 @@ struct DownloadRecord: Codable, Identifiable {
     private var all: [DownloadRecord]
     private var owner = "guest"
     private let defaults: UserDefaults
+    private let identifier: String
     var backgroundCompletion: (() -> Void)?
     private var restored = false
-    private lazy var session = AVAssetDownloadURLSession(configuration:.background(withIdentifier:Self.sessionIdentifier), assetDownloadDelegate:self, delegateQueue:.main)
+    private lazy var session = AVAssetDownloadURLSession(configuration:.background(withIdentifier:identifier), assetDownloadDelegate:self, delegateQueue:.main)
 
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
+    init(defaults: UserDefaults = .standard, identifier: String = "app.komecine.offline-assets") {
+        self.defaults = defaults; self.identifier = identifier
         all = defaults.data(forKey:"offline.records").flatMap { try? JSONDecoder().decode([DownloadRecord].self, from:$0) } ?? []
         super.init(); publish()
     }

@@ -22,6 +22,12 @@ cd backend && pnpm install && pnpm test && pnpm typecheck && pnpm build
 xcodebuild test -project ios/KomeCine/KomeCine.xcodeproj -scheme KomeCine -destination 'platform=iOS Simulator,name=iPhone 17'
 ```
 
-Player dùng AVPlayerViewController với điều khiển hệ thống, chuyển tập, thu nhỏ trong ứng dụng và hỗ trợ Picture in Picture/AirPlay. Các tính năng phát nền và Picture in Picture cần kiểm tra thêm trên thiết bị thật.
+Player dùng AVPlayer/AVPlayerLayer với điều khiển SwiftUI riêng theo bố cục WeTV: thanh tua, tốc độ 0,5×–3×, khóa, bảng chọn tập/server, chọn giới hạn chất lượng từ HLS và chọn âm thanh/phụ đề thực có trong nguồn. Chạm đúp hai bên tua ±10 giây; giữ phát tạm 2×; kéo ngang để tua; vuốt dọc điều chỉnh độ sáng hoặc âm lượng video. Có thu nhỏ trong app, Picture in Picture, AirPlay, chụp khung hình/chia sẻ và thiết lập số giây bỏ qua mở đầu theo phim.
+
+Phụ đề song ngữ dùng hai luồng WebVTT truy cập được; phụ đề gắn sẵn vào hình không thể tắt hoặc đổi cỡ. PiP/AirPlay dùng phụ đề native một ngôn ngữ khi nguồn cung cấp. Chất lượng là giới hạn thích ứng, không giả lập các mức nguồn không có. Khi tải phụ đề rời lỗi, player báo lỗi và dùng lại phụ đề native nếu có.
+
+Thư viện → Tải xuống quản lý tải HLS ngoại tuyến bằng AVAssetDownloadURLSession. Việc tải và phát offline phụ thuộc khả năng của nguồn; chỉ báo sẵn sàng khi hệ thống xác nhận asset dùng offline được. Bản tải thuộc tài khoản trên thiết bị; dữ liệu khách được nhập một lần khi đăng nhập; đăng xuất ẩn bản tải của tài khoản cũ. Lịch sử riêng từng tập lưu trên máy, còn cloud tiếp tục đồng bộ tiến trình gần nhất của mỗi phim.
+
+Các khả năng PiP, AirPlay tới thiết bị đích và tải/phát offline thực tế vẫn cần được kiểm tra trên iPhone. Bộ unit test bao phủ trạng thái điều khiển, HLS/WebVTT, tiến trình và tách dữ liệu tài khoản. Có video local cho UI test/preview trong bản Debug (`KOMECINE_PLAYER_PREVIEW=1`); chế độ này dùng kho dữ liệu riêng, không xác thực cloud và không bật trong bản Release. Xem [báo cáo kiểm chứng player](docs/superpowers/2026-10-31-player-validation.md).
 
 Worker infra được triển khai tại `https://komecine-api.infra-coresys.workers.dev` với D1 mới; dữ liệu từ tài khoản Cloudflare cũ chưa được chuyển sang. Đăng nhập Google và đồng bộ cần được kiểm thử đầu cuối. Để phát hành hoặc chạy trên iPhone thật, cần chọn Apple Developer team trong Xcode và kiểm tra quyền sử dụng nội dung từ nhà cung cấp.

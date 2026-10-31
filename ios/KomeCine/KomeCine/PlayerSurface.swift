@@ -26,10 +26,12 @@ final class PlayerLayerView: UIView {
     private var possibleObservation: NSKeyValueObservation?
     private var pip: AVPictureInPictureController?
     lazy var surface = PlayerLayerView(frame:.zero)
+    var expanded = false
     var onPiPChange: (Bool) -> Void = { _ in }
     var onRestore: () -> Void = {}
 
-    func mount(in container: UIView, player: AVPlayer?, actions: PlayerSurfaceActions) {
+    func mount(in container: UIView, player: AVPlayer?, actions: PlayerSurfaceActions, expanded: Bool) {
+        guard self.expanded == expanded else { return }
         if surface.superview !== container {
             surface.removeFromSuperview(); container.addSubview(surface)
             surface.frame = container.bounds; surface.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -68,12 +70,13 @@ struct PlayerSurface: UIViewRepresentable {
     let presentation: PlayerPresentation
     let player: AVPlayer?
     var actions = PlayerSurfaceActions()
+    var expanded = true
     func makeUIView(context: Context) -> UIView {
         let view = UIView(); view.backgroundColor = .black
-        presentation.mount(in:view, player:player, actions:actions)
+        presentation.mount(in:view, player:player, actions:actions, expanded:expanded)
         return view
     }
-    func updateUIView(_ view: UIView, context: Context) { presentation.mount(in:view, player:player, actions:actions) }
+    func updateUIView(_ view: UIView, context: Context) { presentation.mount(in:view, player:player, actions:actions, expanded:expanded) }
     static func dismantleUIView(_ view: UIView, coordinator: ()) {
         for case let surface as PlayerLayerView in view.subviews { surface.gestures.actions = PlayerSurfaceActions(); surface.removeFromSuperview() }
     }
@@ -99,4 +102,43 @@ struct PlayerShareSheet: UIViewControllerRepresentable {
     let items: [Any]
     func makeUIViewController(context: Context) -> UIActivityViewController { UIActivityViewController(activityItems:items, applicationActivities:nil) }
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+}
+
+/// Native accessible scrubbing with a small round thumb, independent of the system's glass slider styling.
+struct PlayerScrubber: UIViewRepresentable {
+    @Binding var value: Double
+    let duration: Double
+    var onEditing: (Bool) -> Void
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+    func makeUIView(context: Context) -> UISlider {
+        let slider = UISlider()
+        slider.minimumTrackTintColor = .white
+        slider.maximumTrackTintColor = .white.withAlphaComponent(0.25)
+        let image = UIGraphicsImageRenderer(size:CGSize(width:14,height:14)).image { context in
+            UIColor.white.setFill(); context.cgContext.fillEllipse(in:CGRect(x:0,y:0,width:14,height:14))
+        }
+        slider.setThumbImage(image,for:.normal); slider.setThumbImage(image,for:.highlighted)
+        slider.addTarget(context.coordinator,action:#selector(Coordinator.changed(_:)),for:.valueChanged)
+        slider.addTarget(context.coordinator,action:#selector(Coordinator.began),for:.touchDown)
+        slider.addTarget(context.coordinator,action:#selector(Coordinator.ended),for:[.touchUpInside,.touchUpOutside,.touchCancel])
+        slider.accessibilityLabel = "Tiến trình phát"; slider.accessibilityIdentifier = "player.scrubber"
+        return slider
+    }
+    func updateUIView(_ slider: UISlider, context: Context) {
+        context.coordinator.parent = self
+        slider.maximumValue = Float(max(1,duration))
+        if !slider.isTracking { slider.value = Float(min(max(0,value),max(1,duration))) }
+        slider.isEnabled = duration > 0
+        slider.accessibilityValue = "\(PlaybackMath.time(value)) / \(PlaybackMath.time(duration))"
+    }
+    final class Coordinator: NSObject {
+        var parent: PlayerScrubber
+        init(_ parent: PlayerScrubber) { self.parent = parent }
+        @objc func began() { parent.onEditing(true) }
+        @objc func changed(_ slider: UISlider) {
+            parent.value = Double(slider.value)
+            if !slider.isTracking { parent.onEditing(false) }
+        }
+        @objc func ended() { parent.onEditing(false) }
+    }
 }

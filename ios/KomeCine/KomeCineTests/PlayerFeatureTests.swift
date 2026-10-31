@@ -1,8 +1,100 @@
 import Foundation
 import Testing
+import AVFoundation
 @testable import KomeCine
 
 struct PlayerFeatureTests {
+    @MainActor @Test func expandingDuringDismissalWaitsForPresentationToFinish() {
+        let playback = PlaybackCoordinator()
+        let movie = Movie(id:"transition",slug:"transition",name:"Movie",originName:"",posterURL:nil,backdropURL:nil,year:nil)
+        let source = PlaybackSource(server:"S",name:"1",slug:"1",url:"https://example.com/1.m3u8")
+        playback.open(movie:movie,source:source,sources:[source])
+        playback.minimize()
+        playback.expand()
+        #expect(!playback.isExpanded)
+        playback.presentationDidDismiss()
+        #expect(playback.isExpanded)
+        playback.stop()
+    }
+
+    @MainActor @Test func oldLibraryCannotEnqueueProgressForNewAuthentication() throws {
+        let defaults = UserDefaults(suiteName:UUID().uuidString)!
+        let library = LocalLibrary(defaults:defaults)
+        library.setAccount("alice")
+        let movie = Movie(id:"alice-movie",slug:"movie",name:"Movie",originName:"",posterURL:nil,backdropURL:nil,year:nil)
+        let source = PlaybackSource(server:"S",name:"1",slug:"1",url:"https://example.com/1.m3u8")
+        library.record(movie,source:source,position:42,duration:100)
+        var authenticatedAccount = "alice"
+        let sync = CloudSync(defaults:defaults, credentials:{ (authenticatedAccount,"unit-token") })
+        sync.configure(library:library,auth:nil)
+        sync.saveProgressNow()
+        #expect(defaults.data(forKey:"sync.pending.alice") != nil)
+        authenticatedAccount = "bob"
+        sync.saveProgressNow() // Called by stop() before LocalLibrary switches account.
+        #expect(defaults.data(forKey:"sync.pending.bob") == nil)
+        library.setAccount("bob")
+        sync.saveProgressNow()
+        #expect(defaults.data(forKey:"sync.pending.bob") == nil)
+    }
+
+    @MainActor @Test func subtitleFailureIsReportedOnceUntilUserRetries() async throws {
+        var attempts = 0
+        var failures = 0
+        let controller = SubtitleController(resource:{ _ in attempts += 1; throw URLError(.cannotConnectToHost) })
+        controller.onFailure = { _ in failures += 1 }
+        controller.select(primary:HLSTextTrack(name:"Vietnamese",language:"vi",url:URL(string:"https://example.com/sub.m3u8")!),secondary:nil)
+        for _ in 0..<100 { if controller.error != nil { break }; try await Task.sleep(for:.milliseconds(10)) }
+        #expect(controller.error != nil)
+        for clock in 1...5 { controller.update(time:Double(clock)); await Task.yield() }
+        #expect(attempts == 1)
+        #expect(failures == 1)
+    }
+
+    @Test func wrappedMPEGTimestampAlignsToSameVideoTimeline() {
+        let first = "WEBVTT\nX-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:8589844592\n\n00:00:00.000 --> 00:00:02.000\nFirst"
+        let next = "WEBVTT\nX-TIMESTAMP-MAP=LOCAL:00:00:06.000,MPEGTS:450000\n\n00:00:06.000 --> 00:00:08.000\nNext"
+        let origin = WebVTT.mapOffset(first)!
+        let cues = WebVTT.aligned(next,origin:origin)
+        #expect(abs((cues.first?.start ?? -1) - 6) < 0.001)
+        #expect(WebVTT.text(at:7,cues:cues) == "Next")
+    }
+
+    @MainActor @Test func newerCloudProgressWinsForPreviouslyWatchedEpisode() {
+        let library = LocalLibrary(defaults:UserDefaults(suiteName:UUID().uuidString)!)
+        let movie = Movie(id:"movie",slug:"movie",name:"Movie",originName:"",posterURL:nil,backdropURL:nil,year:nil)
+        let source = PlaybackSource(server:"S",name:"1",slug:"1",url:"https://example.com/1.m3u8")
+        library.record(movie,source:source,position:42,duration:400)
+        let remote = WatchProgress(movieId:"movie",episodeSlug:"1",server:"S",position:300,duration:400,updatedAt:Int64(Date().timeIntervalSince1970 * 1000) + 10_000)
+        library.applyCloud(favorites:[],progress:[remote],movies:[movie.id:movie])
+        #expect(library.episodeProgress(movieID:"movie",source:source)?.position == 300)
+    }
+
+    @Test func repeatedSegmentBoundaryCuesAreShownOnce() {
+        let cue = SubtitleCue(start:5,end:7,text:"Boundary cue")
+        #expect(WebVTT.text(at:6,cues:[cue,cue]) == "Boundary cue")
+    }
+
+    @MainActor @Test func nativePauseDoesNotResumeWhenChangingSpeed() async throws {
+        let url = try #require(Bundle.main.url(forResource:"player-preview",withExtension:"mp4"))
+        let playback = PlaybackCoordinator()
+        let movie = Movie(id:"native-test",slug:"native-test",name:"Movie",originName:"",posterURL:nil,backdropURL:nil,year:nil)
+        let source = PlaybackSource(server:"S",name:"1",slug:"1",url:url.absoluteString)
+        playback.open(movie:movie,source:source,sources:[source])
+        defer { playback.stop() }
+        for _ in 0..<300 {
+            if playback.isPlaying { break }
+            try await Task.sleep(for:.milliseconds(10))
+        }
+        #expect(playback.isPlaying)
+        playback.player?.pause() // PiP and system controls act directly on AVPlayer.
+        try await Task.sleep(for:.milliseconds(100))
+        #expect(!playback.isPlaying)
+        playback.setSpeed(1.5)
+        #expect(playback.player?.rate == 0)
+        playback.togglePlayback()
+        #expect(playback.player?.rate == 1.5)
+    }
+
     @MainActor @Test func downloadsMigrateGuestOnceAndFilterOldOwnerCallbacks() {
         let defaults = UserDefaults(suiteName:UUID().uuidString)!
         let manager = OfflineDownloads(defaults:defaults)

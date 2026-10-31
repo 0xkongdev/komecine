@@ -1,6 +1,6 @@
 # Player KomeCine theo giao diện WeTV
 
-Ngày: 2026-10-30. Trạng thái: người dùng đã duyệt và yêu cầu tiếp tục triển khai.
+Ngày: 2026-10-30. Trạng thái: đã triển khai và kiểm chứng; xem [báo cáo kiểm chứng](../2026-10-31-player-validation.md) để biết phạm vi đã chạy và giới hạn còn lại.
 
 ## Mục tiêu và lựa chọn đã thống nhất
 

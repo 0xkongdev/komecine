@@ -26,10 +26,10 @@ struct PlayerScreen: View {
                 VStack(spacing:0) {
                     video(landscape:landscape, safe:geometry.safeAreaInsets)
                         .frame(width:geometry.size.width,height:landscape ? geometry.size.height : geometry.size.width * 9 / 16)
-                    if !landscape { portraitDetails }
+                    if !landscape { portraitDetails.allowsHitTesting(!interaction.locked).accessibilityHidden(interaction.locked) }
                 }
                 if let panel = interaction.panel {
-                    Color.black.opacity(0.22).onTapGesture { closePanel() }
+                    Color.black.opacity(0.22).onTapGesture { closePanel() }.accessibilityLabel("Đóng bảng").accessibilityAddTraits(.isButton)
                     HStack {
                         Spacer(minLength:0)
                         PlayerPanels(panel:panel,playback:playback,presentation:playback.presentation,downloads:downloads,favorite:isFavorite,
@@ -55,6 +55,7 @@ struct PlayerScreen: View {
             do { try await Task.sleep(for:.seconds(1.2)) } catch { return }
             guard !Task.isCancelled, !interaction.isInteracting else { return }; feedback = nil
         }
+        .onAppear { interaction = PlayerInteractionState(); timerID = UUID() }
         .onChange(of:playback.isPlaying) { _, _ in reveal() }
         .onChange(of:playback.source?.id) { _, _ in reveal() }
         .onChange(of:voiceOver) { _, _ in reveal() }
@@ -215,7 +216,7 @@ struct PlayerScreen: View {
             .font(.system(size:12,weight:.medium,design:.monospaced)).fixedSize()
     }
     private var scrubber: some View {
-        Slider(value:Binding(get:{ previewPosition ?? min(playback.position,max(1,playback.duration)) },set:{ previewPosition = $0 }),in:0...max(1,playback.duration)) { editing in
+        PlayerScrubber(value:Binding(get:{ previewPosition ?? min(playback.position,max(1,playback.duration)) },set:{ previewPosition = $0 }),duration:playback.duration) { editing in
             interaction.isInteracting = editing
             if !editing { if let previewPosition { playback.seek(to:previewPosition) }; previewPosition = nil }
             reveal()
@@ -235,6 +236,9 @@ struct PlayerScreen: View {
         Button(action:action) { Text(text).font(.system(size:11,weight:.bold)).padding(.horizontal,5).padding(.vertical,3).overlay { RoundedRectangle(cornerRadius:2).strokeBorder(.white,lineWidth:1.5) }.frame(minWidth:44,minHeight:44) }
             .buttonStyle(.plain).accessibilityLabel(label).accessibilityIdentifier(id)
     }
+    private func portraitAction(_ title: String, panel: PlayerPanel) -> some View {
+        Button { open(panel) } label: { Text(title).frame(minHeight:44).contentShape(Rectangle()) }
+    }
     private var portraitDetails: some View {
         ScrollView {
             VStack(alignment:.leading,spacing:20) {
@@ -244,13 +248,13 @@ struct PlayerScreen: View {
                 }
                 Text("\(playback.source?.server ?? "") · \(playback.source?.name ?? "")").font(.subheadline).foregroundStyle(.secondary)
                 HStack(spacing:12) {
-                    Button("Tốc độ \(speedTitle)") { open(.speed) }
-                    Button("Chất lượng") { open(.quality) }
-                    Button("Phụ đề") { open(.captions) }
+                    portraitAction("Tốc độ \(speedTitle)",panel:.speed)
+                    portraitAction("Chất lượng",panel:.quality)
+                    portraitAction("Phụ đề",panel:.captions)
                     Spacer(minLength:0)
                     Button { open(.servers) } label: { Image(systemName:"server.rack").frame(width:44,height:44) }.accessibilityLabel("Server")
                 }.font(.caption.weight(.semibold))
-                HStack { Text("Danh sách phát").font(.headline); Spacer(); Button("Chọn tập") { open(.episodes) } }
+                HStack { Text("Danh sách phát").font(.headline); Spacer(); portraitAction("Chọn tập",panel:.episodes) }
                 ScrollView(.horizontal,showsIndicators:false) {
                     LazyHStack(spacing:10) {
                         ForEach(playback.sources.filter { $0.server == playback.source?.server }) { episode in
@@ -267,8 +271,8 @@ struct PlayerScreen: View {
                     Text(playback.movieDescription.replacingOccurrences(of:"<[^>]+>",with:"",options:.regularExpression)).font(.subheadline).foregroundStyle(.secondary).lineSpacing(5)
                 }
                 HStack(spacing:24) {
-                    Button(action:download) { Label("Tải xuống",systemImage:"arrow.down.circle") }
-                    Button(action:share) { Label("Chia sẻ",systemImage:"square.and.arrow.up") }
+                    Button(action:download) { Label("Tải xuống",systemImage:"arrow.down.circle").frame(minHeight:44).contentShape(Rectangle()) }
+                    Button(action:share) { Label("Chia sẻ",systemImage:"square.and.arrow.up").frame(minHeight:44).contentShape(Rectangle()) }
                 }.font(.subheadline).padding(.vertical,6)
             }.padding(20).padding(.bottom,30)
         }.background(Color(red:0.04,green:0.04,blue:0.05)).foregroundStyle(.white)
@@ -280,6 +284,7 @@ private struct PlayerCaptionOverlay: View {
     let size: Double
     var body: some View {
         VStack { Spacer(); VStack(spacing:4) {
+            if let error = subtitles.error { Text(error).font(.caption).foregroundStyle(.white).padding(8).background(.black.opacity(0.8),in:RoundedRectangle(cornerRadius:6)) }
             if !subtitles.primaryText.isEmpty { Text(subtitles.primaryText).font(.system(size:size,weight:.semibold)).foregroundStyle(.white) }
             if !subtitles.secondaryText.isEmpty { Text(subtitles.secondaryText).font(.system(size:size * 0.85,weight:.medium)).foregroundStyle(.yellow) }
         }.multilineTextAlignment(.center).shadow(color:.black,radius:2,x:1,y:1).padding(.horizontal,6).background(.black.opacity(subtitles.primaryText.isEmpty ? 0 : 0.25),in:RoundedRectangle(cornerRadius:4)) }

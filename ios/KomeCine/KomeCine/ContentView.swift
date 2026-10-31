@@ -7,11 +7,12 @@ private enum Design {
 }
 
 struct ContentView: View {
-    @StateObject private var library = LocalLibrary()
+    @StateObject private var library = LocalLibrary(defaults:PlayerDebugEnvironment.defaults)
     @StateObject private var auth = AuthManager()
     @StateObject private var sync = CloudSync()
     @StateObject private var playback = PlaybackCoordinator()
-    @StateObject private var downloads = OfflineDownloads.shared
+    @StateObject private var downloads = PlayerDebugEnvironment.enabled ? OfflineDownloads(defaults:PlayerDebugEnvironment.defaults,identifier:"app.komecine.preview-downloads") : OfflineDownloads.shared
+    @State private var prepared = false
     @Environment(\.scenePhase) private var scenePhase
     var body: some View {
         TabView {
@@ -21,15 +22,15 @@ struct ContentView: View {
         }
         .environmentObject(library).environmentObject(auth).environmentObject(sync).environmentObject(playback).environmentObject(downloads).tint(Design.accent).preferredColorScheme(.dark)
             .overlay(alignment:.bottom) {
-                if playback.movie != nil, playback.player != nil, !playback.isExpanded { PlayerMiniBar().padding(.horizontal,8).padding(.bottom,52) }
+                if playback.movie != nil, playback.player != nil, !playback.isExpanded { PlayerMiniBar().environmentObject(playback).padding(.horizontal,8).padding(.bottom,52) }
             }
-            .fullScreenCover(isPresented:$playback.isExpanded) { PlayerScreen().environmentObject(playback).environmentObject(library).environmentObject(downloads) }
-            .onAppear { sync.configure(library:library,auth:auth); playback.configure(library:library,sync:sync); downloads.setAccount(auth.userID); downloads.restoreTasks(); playback.offlineURL = { [weak downloads = downloads] movie, source in downloads?.localURL(movie:movie,source:source) }; if auth.token != nil { sync.activate(auth.userID,previousID:nil) }
+            .fullScreenCover(isPresented:$playback.isExpanded,onDismiss:{ playback.presentationDidDismiss() }) { PlayerScreen().environmentObject(playback).environmentObject(library).environmentObject(downloads) }
+            .onAppear { guard !prepared else { return }; prepared = true; sync.configure(library:library,auth:PlayerDebugEnvironment.enabled ? nil : auth); playback.configure(library:library,sync:sync); downloads.setAccount(PlayerDebugEnvironment.enabled ? nil : auth.userID); if !PlayerDebugEnvironment.enabled { downloads.restoreTasks() }; playback.offlineURL = { [weak downloads = downloads] movie, source in downloads?.localURL(movie:movie,source:source) }; if !PlayerDebugEnvironment.enabled, auth.token != nil { sync.activate(auth.userID,previousID:nil) }
                 #if DEBUG
                 PlayerDebugPreview.openIfRequested(playback)
                 #endif
             }
-            .onChange(of: auth.userID) { oldValue, newValue in playback.stop(); downloads.setAccount(newValue); sync.activate(newValue,previousID:oldValue) }
+            .onChange(of: auth.userID) { oldValue, newValue in guard !PlayerDebugEnvironment.enabled else { return }; playback.stop(); downloads.setAccount(newValue); sync.activate(newValue,previousID:oldValue) }
             .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await sync.synchronize() } } else if phase == .background { sync.saveProgressNow() } }
     }
 }
@@ -41,7 +42,7 @@ private struct PlayerMiniBar: View {
         HStack(spacing:8) {
             Button { playback.expand() } label: {
                 HStack(spacing:10) {
-                    PlayerSurface(presentation:playback.presentation,player:playback.player).frame(width:76,height:44).clipShape(RoundedRectangle(cornerRadius:6)).allowsHitTesting(false)
+                    PlayerSurface(presentation:playback.presentation,player:playback.player,expanded:false).frame(width:76,height:44).clipShape(RoundedRectangle(cornerRadius:6)).allowsHitTesting(false)
                     VStack(alignment:.leading,spacing:3) {
                         Text(playback.movie?.name ?? "").lineLimit(1).font(.caption.bold())
                         Text(playback.source?.name ?? "").font(.caption2).foregroundStyle(.secondary)

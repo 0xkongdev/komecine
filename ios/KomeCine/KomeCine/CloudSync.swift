@@ -14,11 +14,17 @@ private struct ResponseItems<T:Decodable>:Decodable { let items:[T] }
     private var flushing=false
     private var resyncRequested=false
     private let defaults:UserDefaults
+    private let credentialsProvider: (() -> (String, String)?)?
     private weak var library:LocalLibrary?
     private weak var auth:AuthManager?
     private var lastProgress:Date = .distantPast
-    init(defaults:UserDefaults = .standard) {self.defaults=defaults}
-    func configure(library:LocalLibrary,auth:AuthManager) {
+    init(defaults:UserDefaults = .standard, credentials: (() -> (String, String)?)? = nil) {self.defaults=defaults; self.credentialsProvider=credentials}
+    private var credentials: (id: String, token: String)? {
+        if let credentialsProvider { return credentialsProvider().map { (id:$0.0,token:$0.1) } }
+        guard let id = auth?.userID, let token = auth?.token else { return nil }
+        return (id,token)
+    }
+    func configure(library:LocalLibrary,auth:AuthManager?) {
         self.library=library; self.auth=auth
         library.onFavoriteChange = { [weak self] movie,added in self?.enqueue(Mutation(kind:added ? "favorite.put" : "favorite.delete",movie:movie,progress:nil)) }
         library.onProgressChange = { [weak self] value in
@@ -31,6 +37,7 @@ private struct ResponseItems<T:Decodable>:Decodable { let items:[T] }
         let guestFavorites = previousID == nil && id != nil ? library.favorites : []
         let guestProgress = previousID == nil && id != nil ? Array(library.progress.values) : []
         library.setAccount(id)
+        lastProgress = .distantPast
         if id == nil, let previousID { library.clearAccount(previousID) }
         guard id != nil else{return}
         for movie in guestFavorites {enqueue(Mutation(kind:"favorite.put",movie:movie,progress:nil))}
@@ -45,12 +52,13 @@ private struct ResponseItems<T:Decodable>:Decodable { let items:[T] }
     private func pending(_ id:String)->[Mutation] { guard let data=defaults.data(forKey:pendingKey(id)) else{return []}; return (try? JSONDecoder().decode([Mutation].self,from:data)) ?? [] }
     private func save(_ values:[Mutation],_ id:String) {defaults.set(try? JSONEncoder().encode(values),forKey:pendingKey(id))}
     private func enqueue(_ mutation:Mutation) {
-        guard let id=auth?.userID, auth?.token != nil else{return}
+        guard let credentials, let library, library.accountID == credentials.id else{return}
+        let id = credentials.id
         var values=pending(id); values.append(mutation); save(values,id)
         Task { await synchronize() }
     }
     private func request(_ path:String, method:String="GET", data:Data?=nil, auth:AuthManager) async throws -> Data {
-        guard let config=auth.configuration, let token=auth.token else {throw APIError.invalidResponse}
+        guard let config=auth.configuration, let token=auth.token, let id=auth.userID, library?.accountID == id else {throw APIError.invalidResponse}
         guard let url=URL(string:path,relativeTo:config.backendURL)?.absoluteURL else {throw APIError.invalidResponse}
         var request=URLRequest(url:url);request.httpMethod=method;request.httpBody=data
         request.setValue("Bearer \(token)",forHTTPHeaderField:"Authorization")
@@ -61,7 +69,7 @@ private struct ResponseItems<T:Decodable>:Decodable { let items:[T] }
     }
     func synchronize() async {
         if flushing { resyncRequested=true; return }
-        guard let auth,let id=auth.userID,let library,auth.token != nil else{return}
+        guard let auth,let id=auth.userID,let library,library.accountID == id,auth.token != nil else{return}
         flushing=true; isSyncing=true; error=nil
         defer {
             flushing=false; isSyncing=false

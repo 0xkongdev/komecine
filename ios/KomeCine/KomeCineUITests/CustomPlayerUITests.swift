@@ -11,6 +11,9 @@ final class CustomPlayerUITests: XCTestCase {
     @MainActor func testSpeedPanelLockAndMinimize() {
         let app = openPlayer()
         XCTAssertTrue(app.buttons["player.fullscreen"].waitForExistence(timeout:8))
+        app.buttons["player.lock"].tap()
+        XCTAssertFalse(app.buttons["Tập 2"].exists, "Portrait episode actions must not bypass the player lock")
+        app.buttons["player.lock"].tap()
         app.buttons["player.fullscreen"].tap()
         let speed = app.buttons["player.speed"]
         XCTAssertTrue(speed.waitForExistence(timeout:5))

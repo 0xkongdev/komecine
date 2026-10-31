@@ -60,25 +60,54 @@ struct PlayerMediaTrack: Identifiable {
     private var token = UUID()
     private var lastSaved = Date.distantPast
     private var wantsToPlay = false
+    private var dismissing = false
+    private var expandAfterDismissal = false
     private var wasPlayingBeforeBoost = false
     private var audioGroup: AVMediaSelectionGroup?
     private var captionGroup: AVMediaSelectionGroup?
     private var pendingResume: Double?
     private var imageOutput: AVPlayerItemVideoOutput?
+    private struct Choices {
+        let quality: Int?
+        let audio: PlayerMediaTrack?
+        let caption: PlayerMediaTrack?
+        let secondary: PlayerMediaTrack?
+    }
+    init() {
+        subtitles.onFailure = { [weak self] _ in
+            guard let self, let group = self.captionGroup,
+                  let option = self.captionTracks.first(where:{ $0.id == self.captionID })?.option else { return }
+            self.player?.currentItem?.select(option,in:group)
+        }
+    }
     static let speeds: [Float] = [0.5, 0.75, 1, 1.25, 1.5, 2, 3]
     var effectiveSpeed: Float { boosted ? 2 : selectedSpeed }
     var nextSource: PlaybackSource? { source?.next(in:sources) }
 
     func configure(library: LocalLibrary, sync: CloudSync) { self.library = library; self.sync = sync }
     func open(movie: Movie, source: PlaybackSource, sources: [PlaybackSource], description: String = "") {
-        if self.movie?.id == movie.id, self.source?.id == source.id, player != nil { isExpanded = true; return }
+        if self.movie?.id == movie.id, self.source?.id == source.id, player != nil { expand(); return }
         cancelNext(); finishItem()
         self.movie = movie; self.source = source; self.sources = sources; movieDescription = description
         introSkipSeconds = UserDefaults.standard.double(forKey:"player.intro.\(movie.id)")
-        start(source, resume: savedPosition(movie:movie, source:source)); isExpanded = true
+        start(source, resume: savedPosition(movie:movie, source:source)); expand()
     }
-    func minimize() { presentation.setLandscape(false); presentation.restoreBrightness(); endBoost(); save(); sync?.saveProgressNow(); isExpanded = false }
-    func expand() { if player != nil { isExpanded = true } }
+    func minimize() {
+        presentation.expanded = false
+        endBoost(); save(); sync?.saveProgressNow()
+        dismissing = isExpanded; expandAfterDismissal = false; isExpanded = false
+        presentation.restoreBrightness()
+    }
+    func expand() {
+        guard player != nil else { return }
+        if dismissing { expandAfterDismissal = true; return }
+        presentation.expanded = true; isExpanded = true
+    }
+    func presentationDidDismiss() {
+        dismissing = false
+        presentation.setLandscape(false)
+        if expandAfterDismissal { expandAfterDismissal = false; expand() }
+    }
     func change(to next: PlaybackSource) {
         guard let movie else { return }
         let resume = source?.slug == next.slug ? position : savedPosition(movie:movie, source:next)
@@ -90,10 +119,13 @@ struct PlayerMediaTrack: Identifiable {
     }
     func retry() {
         guard let source else { return }
-        let resume = position; finishItem(); start(source, resume:resume)
+        let resume = position
+        let choices = Choices(quality:selectedQuality,audio:audioTracks.first{ $0.id == audioID },caption:captionTracks.first{ $0.id == captionID },secondary:captionTracks.first{ $0.id == secondaryCaptionID })
+        finishItem(); start(source, resume:resume, restoring:choices)
     }
     func cancelNext() { nextTask?.cancel(); nextTask = nil; countdown = 0 }
     func stop() {
+        expandAfterDismissal = false; presentation.expanded = false; dismissing = isExpanded || dismissing
         presentation.stopPiP(); presentation.setLandscape(false); presentation.restoreBrightness(); endBoost(); cancelNext(); finishItem(); sync?.saveProgressNow()
         player?.pause(); player = nil; isExpanded = false; movie = nil; source = nil; sources = []
         isPlaying = false; wantsToPlay = false; position = 0; duration = 0; error = nil
@@ -157,7 +189,7 @@ struct PlayerMediaTrack: Identifiable {
               progress.position > 0, progress.duration <= 0 || progress.position < progress.duration - 1 else { return 0 }
         return progress.position
     }
-    private func start(_ source: PlaybackSource, resume: Double) {
+    private func start(_ source: PlaybackSource, resume: Double, restoring choices: Choices? = nil) {
         guard let remote = URL(string:source.url), ["http", "https", "file"].contains(remote.scheme?.lowercased() ?? "") else { error = "Nguồn phát không hợp lệ."; return }
         let local = movie.flatMap { offlineURL?($0, source) }
         let url = local ?? remote; usingOfflineAsset = local != nil
@@ -183,6 +215,13 @@ struct PlayerMediaTrack: Identifiable {
                 Task { @MainActor [weak self] in
                     guard let self, self.token == session else { return }
                     self.isPlaying = p.timeControlStatus == .playing
+                    if p.timeControlStatus == .paused {
+                        self.wantsToPlay = false
+                        if self.boosted { self.wasPlayingBeforeBoost = false }
+                    } else if p.timeControlStatus == .playing {
+                        self.wantsToPlay = true
+                        if p.rate != self.effectiveSpeed { p.rate = self.effectiveSpeed }
+                    }
                     self.isBuffering = p.timeControlStatus == .waitingToPlayAtSpecifiedRate && self.error == nil
                 }
             },
@@ -221,6 +260,15 @@ struct PlayerMediaTrack: Identifiable {
             if let group = audible, let selected = item.currentMediaSelection.selectedMediaOption(in:group) { self.audioID = self.audioTracks.first(where: { $0.option == selected })?.id }
             if let group = legible, let selected = item.currentMediaSelection.selectedMediaOption(in:group) { self.captionID = self.captionTracks.first(where: { $0.option == selected })?.id }
             self.metadataLoading = false; self.applyCaptionStyle()
+            if let choices {
+                self.selectQuality(choices.quality)
+                if let previous = choices.audio,
+                   let track = self.audioTracks.first(where:{ $0.name == previous.name && $0.language == previous.language }) { self.selectAudio(track.id) }
+                let caption = choices.caption.flatMap { old in self.captionTracks.first { $0.name == old.name && $0.language == old.language } }
+                self.selectCaption(caption?.id)
+                let secondary = choices.secondary.flatMap { old in self.captionTracks.first { $0.name == old.name && $0.language == old.language && $0.external != nil } }
+                self.selectSecondaryCaption(secondary?.id)
+            }
         }
         play()
     }

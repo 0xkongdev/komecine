@@ -25,11 +25,13 @@ struct PlayerPanels: View {
     }
     var body: some View {
         VStack(spacing:0) {
+            if panel != .speed {
             HStack { Text(title).font(.headline); Spacer(); Button(action:close) { Image(systemName:"xmark").frame(width:44,height:44) }.accessibilityLabel("Đóng bảng") }
                 .padding(.leading,20).padding(.trailing,6).padding(.top,6)
             Divider().overlay(.white.opacity(0.08))
+            }
             ScrollView {
-                VStack(alignment:.leading,spacing:12) { content }.padding(20)
+                VStack(alignment:.leading,spacing:panel == .speed ? 0 : 12) { content }.padding(panel == .speed ? 8 : 20)
             }
         }
         .foregroundStyle(.white)

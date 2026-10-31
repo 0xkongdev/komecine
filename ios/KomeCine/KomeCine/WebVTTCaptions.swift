@@ -1,6 +1,6 @@
 import Foundation
 
-struct SubtitleCue: Equatable {
+struct SubtitleCue: Hashable {
     let start: Double
     let end: Double
     let text: String
@@ -47,6 +47,16 @@ enum WebVTT {
         return cues.sorted { $0.start < $1.start }
     }
     static func text(at time: Double, cues: [SubtitleCue]) -> String {
-        cues.filter { $0.start <= time && time < $0.end }.map(\.text).joined(separator: "\n")
+        var seen = Set<SubtitleCue>()
+        return cues.filter { $0.start <= time && time < $0.end && seen.insert($0).inserted }.map(\.text).joined(separator: "\n")
+    }
+    static func aligned(_ text: String, origin: Double) -> [SubtitleCue] {
+        guard let offset = mapOffset(text) else { return parse(text) }
+        let wrap = 8_589_934_592.0 / 90_000
+        let shift = ((origin - offset) / wrap).rounded() * wrap - origin
+        return parse(text).map {
+            SubtitleCue(start:(($0.start + shift) * 1000).rounded() / 1000,
+                        end:(($0.end + shift) * 1000).rounded() / 1000, text:$0.text)
+        }
     }
 }

@@ -20,6 +20,10 @@ struct SubtitleSegment {
     private var task: Task<Void, Never>?
     private var generation = UUID()
     private var clock: Double = 0
+    private let resource: (URL) async throws -> (String, URL)
+    var onFailure: (String) -> Void = { _ in }
+
+    init(resource: @escaping (URL) async throws -> (String, URL) = HLSMetadata.resource) { self.resource = resource }
 
     func select(primary: HLSTextTrack?, secondary: HLSTextTrack?) {
         task?.cancel(); generation = UUID(); task = nil
@@ -33,7 +37,7 @@ struct SubtitleSegment {
         clock = time
         primaryText = tracks.first.map { WebVTT.text(at: time, cues: cues[$0.id] ?? []) } ?? ""
         secondaryText = tracks.count > 1 ? WebVTT.text(at: time, cues: cues[tracks[1].id] ?? []) : ""
-        guard !tracks.isEmpty, task == nil else { return }
+        guard !tracks.isEmpty, task == nil, error == nil else { return }
         let token = generation
         task = Task { [weak self] in
             guard let self else { return }
@@ -41,7 +45,7 @@ struct SubtitleSegment {
             do {
                 for track in self.tracks {
                     if self.playlists[track.id] == nil {
-                        let (text, url) = try await HLSMetadata.resource(track.url)
+                        let (text, url) = try await self.resource(track.url)
                         guard !Task.isCancelled, self.generation == token else { return }
                         if text.trimmingCharacters(in:.whitespacesAndNewlines).hasPrefix("WEBVTT") {
                             self.cues[track.id] = WebVTT.parse(text)
@@ -57,16 +61,15 @@ struct SubtitleSegment {
                         for part in nearby {
                             let periodKey = "\(track.id)|\(part.periodStart)"
                             if self.origins[periodKey] == nil, let first = segments.first(where: { $0.periodStart == part.periodStart }) {
-                                let (text, _) = try await HLSMetadata.resource(first.url)
+                                let (text, _) = try await self.resource(first.url)
                                 guard !Task.isCancelled, self.generation == token else { return }
                                 self.origins[periodKey] = (WebVTT.mapOffset(text) ?? 0) - first.start
                             }
                             guard !self.fetched.contains(part.url) else { continue }
-                            let (text, _) = try await HLSMetadata.resource(part.url)
+                            let (text, _) = try await self.resource(part.url)
                             guard !Task.isCancelled, self.generation == token else { return }
-                            let offset = WebVTT.mapOffset(text) != nil ? self.origins[periodKey] ?? 0 : 0
-                            let values = WebVTT.parse(text).map { SubtitleCue(start:$0.start-offset, end:$0.end-offset, text:$0.text) }
-                            self.cues[track.id, default: []].append(contentsOf: values)
+                            let values = WebVTT.aligned(text,origin:self.origins[periodKey] ?? 0)
+                            self.cues[track.id] = Array(Set((self.cues[track.id] ?? []) + values)).sorted { $0.start < $1.start }
                             self.fetched.insert(part.url)
                         }
                     }
@@ -77,6 +80,8 @@ struct SubtitleSegment {
             } catch {
                 guard !Task.isCancelled, self.generation == token else { return }
                 self.error = "Không tải được phụ đề. Hãy chọn lại ngôn ngữ để thử lại."
+                self.primaryText = ""; self.secondaryText = ""
+                self.onFailure(self.error!)
             }
         }
     }

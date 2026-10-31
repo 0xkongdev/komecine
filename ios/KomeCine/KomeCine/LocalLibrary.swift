@@ -10,6 +10,7 @@ import Combine
     var onProgressChange: ((WatchProgress) -> Void)?
     private let defaults: UserDefaults
     private var account: String?
+    var accountID: String? { account }
     private var episodeHistory: [String: WatchProgress] = [:]
     private var artworkCandidates: [Movie] = []
     private func key(_ name: String) -> String { (account.map { "user.\($0)." } ?? "guest.") + name }
@@ -106,8 +107,8 @@ import Combine
         (try? String(data: JSONEncoder().encode([movieID, source.server, source.slug]), encoding: .utf8)) ?? ""
     }
     func episodeProgress(movieID: String, source: PlaybackSource) -> WatchProgress? {
-        if let saved = episodeHistory[episodeKey(movieID: movieID, source: source)] { return saved }
-        guard let latest = progress[movieID], latest.episodeSlug == source.slug, latest.server == source.server else { return nil }
-        return latest
+        let saved = episodeHistory[episodeKey(movieID: movieID, source: source)]
+        guard let latest = progress[movieID], latest.episodeSlug == source.slug, latest.server == source.server else { return saved }
+        return saved.map { WatchProgress.mostRecent($0, latest) } ?? latest
     }
 }
