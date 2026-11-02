@@ -1,5 +1,9 @@
 import Foundation
 
+enum HLSResourceError: Error {
+    case httpStatus(Int)
+}
+
 struct HLSMetadata {
     var qualities: [VideoQuality] = []
     var subtitles: [HLSTextTrack] = []
@@ -55,7 +59,9 @@ struct HLSMetadata {
         var request = URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 20)
         request.setValue("application/vnd.apple.mpegurl,text/vtt,text/plain,*/*", forHTTPHeaderField: "Accept")
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode), data.count <= 8_000_000,
+        guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+        guard (200..<300).contains(http.statusCode) else { throw HLSResourceError.httpStatus(http.statusCode) }
+        guard data.count <= 8_000_000,
               let text = String(data: data, encoding: .utf8) else { throw URLError(.cannotDecodeContentData) }
         return (text, response.url ?? url)
     }

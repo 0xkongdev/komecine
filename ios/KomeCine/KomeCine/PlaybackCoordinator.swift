@@ -67,13 +67,16 @@ struct PlayerMediaTrack: Identifiable {
     private var captionGroup: AVMediaSelectionGroup?
     private var pendingResume: Double?
     private var imageOutput: AVPlayerItemVideoOutput?
+    private let loadMetadata: (URL) async throws -> HLSMetadata
+    private var metadataHTTPStatus: Int?
     private struct Choices {
         let quality: Int?
         let audio: PlayerMediaTrack?
         let caption: PlayerMediaTrack?
         let secondary: PlayerMediaTrack?
     }
-    init() {
+    init(loadMetadata: @escaping (URL) async throws -> HLSMetadata = HLSMetadata.load) {
+        self.loadMetadata = loadMetadata
         subtitles.onFailure = { [weak self] _ in
             guard let self, let group = self.captionGroup,
                   let option = self.captionTracks.first(where:{ $0.id == self.captionID })?.option else { return }
@@ -198,6 +201,7 @@ struct PlayerMediaTrack: Identifiable {
         position = resume; duration = 0; buffered = 0; error = nil; isBuffering = true
         qualities = []; selectedQuality = nil; audioTracks = []; captionTracks = []; audioID = nil; captionID = nil; secondaryCaptionID = nil
         audioGroup = nil; captionGroup = nil; pendingResume = resume > 0 ? resume : nil
+        metadataHTTPStatus = nil
         let item = AVPlayerItem(url:url)
         let output = AVPlayerItemVideoOutput(pixelBufferAttributes:[kCVPixelBufferPixelFormatTypeKey as String:kCVPixelFormatType_32BGRA])
         item.add(output); imageOutput = output
@@ -207,7 +211,7 @@ struct PlayerMediaTrack: Identifiable {
             item.observe(\.status, options:[.initial, .new]) { [weak self] item, _ in
                 Task { @MainActor [weak self] in
                     guard let self, self.token == session, self.player?.currentItem === item else { return }
-                    if item.status == .failed { self.error = "Không phát được video. Hãy thử lại hoặc chọn server khác."; self.isBuffering = false; self.isPlaying = false }
+                    if item.status == .failed { self.reportPlaybackFailure() }
                     if item.status == .readyToPlay { self.refreshClock(); self.applyResume() }
                 }
             },
@@ -243,11 +247,19 @@ struct PlayerMediaTrack: Identifiable {
             Task { @MainActor [weak self] in guard let self, self.token == session else { return }; self.isPlaying = false; self.scheduleNext() }
         }
         metadataLoading = true
+        let loadMetadata = loadMetadata
         metadataTask = Task { [weak self] in
-            let metadata = url.isFileURL ? HLSMetadata() : (try? await HLSMetadata.load(url)) ?? HLSMetadata()
+            var metadata = HLSMetadata()
+            var httpStatus: Int?
+            do { if !url.isFileURL { metadata = try await loadMetadata(url) } }
+            catch HLSResourceError.httpStatus(let status) { httpStatus = status }
+            catch { /* Optional metadata must not prevent AVPlayer from playing. */ }
+            guard let self, !Task.isCancelled, self.token == session else { return }
+            self.metadataHTTPStatus = httpStatus
+            if item.status == .failed { self.reportPlaybackFailure() }
             let audible = try? await item.asset.loadMediaSelectionGroup(for:.audible)
             let legible = try? await item.asset.loadMediaSelectionGroup(for:.legible)
-            guard let self, !Task.isCancelled, self.token == session else { return }
+            guard !Task.isCancelled, self.token == session else { return }
             self.qualities = metadata.qualities; self.audioGroup = audible; self.captionGroup = legible
             self.audioTracks = (audible?.options ?? []).enumerated().map { PlayerMediaTrack(id:"audio-\($0.offset)", name:$0.element.displayName, language:$0.element.extendedLanguageTag ?? "", option:$0.element, external:nil) }
             self.captionTracks = (legible?.options ?? []).enumerated().map { PlayerMediaTrack(id:"caption-\($0.offset)", name:$0.element.displayName, language:$0.element.extendedLanguageTag ?? "", option:$0.element, external:nil) }
@@ -271,6 +283,14 @@ struct PlayerMediaTrack: Identifiable {
             }
         }
         play()
+    }
+    private func reportPlaybackFailure() {
+        if metadataHTTPStatus == 404 || metadataHTTPStatus == 410 {
+            error = "Video của tập này hiện không có trên máy chủ nguồn. Vui lòng thử lại sau."
+        } else {
+            error = "Không phát được video. Hãy thử lại hoặc chọn server khác."
+        }
+        isBuffering = false; isPlaying = false; wantsToPlay = false
     }
     private func refreshClock() {
         guard let item = player?.currentItem else { return }
