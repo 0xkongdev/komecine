@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 
 private enum Design {
@@ -279,23 +280,14 @@ private struct FeaturedCarousel: View {
     }
 }
 
-private enum KomeCineMascotPose: Int {
-    case resting
-    case reaching
-    case smiling
-}
-
 private struct KomeCineMascotSprite: View {
-    let pose: KomeCineMascotPose
-
     var body: some View {
         GeometryReader { geometry in
-            let edge = geometry.size.height * 1.18
-            Image("KomeCineMascot")
+            let edge = geometry.size.height
+            Image("KomeCineMascotMotionFirst")
                 .resizable()
                 .interpolation(.high)
                 .frame(width: edge * 3, height: edge)
-                .offset(x: -CGFloat(pose.rawValue) * edge)
                 .frame(width: edge, height: edge, alignment: .leading)
                 .clipped()
                 .frame(width: geometry.size.width, height: geometry.size.height)
@@ -303,41 +295,84 @@ private struct KomeCineMascotSprite: View {
     }
 }
 
+private final class KomeCineMascotPlayerView: UIView {
+    override class var layerClass: AnyClass { AVPlayerLayer.self }
+
+    var playerLayer: AVPlayerLayer {
+        layer as! AVPlayerLayer
+    }
+}
+
+private struct KomeCineMascotVideo: UIViewRepresentable {
+    let shouldPlay: Bool
+
+    final class Coordinator {
+        let player = AVQueuePlayer()
+        var looper: AVPlayerLooper?
+        var isPlaying = false
+
+        init() {
+            player.isMuted = true
+            player.automaticallyWaitsToMinimizeStalling = false
+            guard let url = Bundle.main.url(forResource: "KomeCineMascot", withExtension: "mp4") else { return }
+            looper = AVPlayerLooper(player: player, templateItem: AVPlayerItem(url: url))
+        }
+
+        func setPlaying(_ shouldPlay: Bool) {
+            guard isPlaying != shouldPlay else { return }
+            isPlaying = shouldPlay
+            if shouldPlay {
+                player.play()
+            } else {
+                player.pause()
+                player.seek(to: .zero)
+            }
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeUIView(context: Context) -> KomeCineMascotPlayerView {
+        let view = KomeCineMascotPlayerView()
+        view.backgroundColor = .clear
+        view.isUserInteractionEnabled = false
+        view.playerLayer.player = context.coordinator.player
+        view.playerLayer.videoGravity = .resizeAspect
+        context.coordinator.setPlaying(shouldPlay)
+        return view
+    }
+
+    func updateUIView(_ view: KomeCineMascotPlayerView, context: Context) {
+        context.coordinator.setPlaying(shouldPlay)
+    }
+
+    static func dismantleUIView(_ view: KomeCineMascotPlayerView, coordinator: Coordinator) {
+        coordinator.player.pause()
+        coordinator.player.removeAllItems()
+        view.playerLayer.player = nil
+    }
+}
+
 private struct KomeCineMascotTitle: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @State private var isVisible = false
-    @State private var pose: KomeCineMascotPose = .resting
-    @State private var kernelVisible = false
-    @State private var kernelRaised = false
-    @State private var heartVisible = false
-    @State private var heartRaised = false
 
-    private var shouldAnimate: Bool {
+    private var shouldPlay: Bool {
         isVisible && scenePhase == .active && !reduceMotion
     }
 
     var body: some View {
-        ZStack {
-            KomeCineMascotSprite(pose: pose)
-                .animation(.easeInOut(duration: 0.12), value: pose)
-
-            Circle()
-                .fill(Color(red: 1, green: 0.76, blue: 0.24))
-                .overlay(Circle().stroke(.white.opacity(0.75), lineWidth: 0.6))
-                .frame(width: 5, height: 5)
-                .scaleEffect(kernelRaised ? 1 : 0.35)
-                .offset(y: kernelRaised ? -4 : 7)
-                .opacity(kernelVisible ? 1 : 0)
-
-            Image(systemName: "heart.fill")
-                .font(.system(size: 7, weight: .bold))
-                .foregroundStyle(Color(red: 1, green: 0.48, blue: 0.64))
-                .scaleEffect(heartRaised ? 1.1 : 0.65)
-                .offset(y: heartRaised ? -13 : -4)
-                .opacity(heartVisible ? 1 : 0)
+        Group {
+            if reduceMotion {
+                KomeCineMascotSprite()
+            } else {
+                KomeCineMascotVideo(shouldPlay: shouldPlay)
+            }
         }
-        .frame(width: 100, height: 36)
+        .frame(width: 124, height: 42)
         .clipped()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("KomeCine")
@@ -345,73 +380,6 @@ private struct KomeCineMascotTitle: View {
         .accessibilityIdentifier("home.mascot")
         .onAppear { isVisible = true }
         .onDisappear { isVisible = false }
-        .task(id: shouldAnimate) {
-            guard shouldAnimate else {
-                reset()
-                return
-            }
-            await animate()
-        }
-    }
-
-    private func animate() async {
-        while !Task.isCancelled {
-            reset()
-            guard await pause(for: 0.12) else { return }
-
-            withAnimation(.easeOut(duration: 0.68)) {
-                kernelVisible = true
-                kernelRaised = true
-            }
-            guard await pause(for: 0.4) else { return }
-
-            withAnimation(.easeInOut(duration: 0.12)) {
-                pose = .reaching
-            }
-            guard await pause(for: 0.48) else { return }
-
-            withAnimation(.easeInOut(duration: 0.14)) {
-                pose = .smiling
-                kernelVisible = false
-                heartVisible = true
-                heartRaised = false
-            }
-            guard await pause(for: 0.05) else { return }
-
-            withAnimation(.easeOut(duration: 0.65)) {
-                heartRaised = true
-            }
-            guard await pause(for: 0.85) else { return }
-
-            withAnimation(.easeOut(duration: 0.25)) {
-                pose = .resting
-                heartVisible = false
-                heartRaised = false
-            }
-            guard await pause(for: 0.95) else { return }
-            guard await pause(for: 10) else { return }
-        }
-    }
-
-    private func pause(for seconds: Double) async -> Bool {
-        do {
-            try await Task.sleep(for: .seconds(seconds))
-            return !Task.isCancelled
-        } catch {
-            return false
-        }
-    }
-
-    private func reset() {
-        var transaction = Transaction()
-        transaction.animation = nil
-        withTransaction(transaction) {
-            pose = .resting
-            kernelVisible = false
-            kernelRaised = false
-            heartVisible = false
-            heartRaised = false
-        }
     }
 }
 
