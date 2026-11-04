@@ -279,6 +279,142 @@ private struct FeaturedCarousel: View {
     }
 }
 
+private enum KomeCineMascotPose: Int {
+    case resting
+    case reaching
+    case smiling
+}
+
+private struct KomeCineMascotSprite: View {
+    let pose: KomeCineMascotPose
+
+    var body: some View {
+        GeometryReader { geometry in
+            let edge = geometry.size.height * 1.18
+            Image("KomeCineMascot")
+                .resizable()
+                .interpolation(.high)
+                .frame(width: edge * 3, height: edge)
+                .offset(x: -CGFloat(pose.rawValue) * edge)
+                .frame(width: edge, height: edge, alignment: .leading)
+                .clipped()
+                .frame(width: geometry.size.width, height: geometry.size.height)
+        }
+    }
+}
+
+private struct KomeCineMascotTitle: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var isVisible = false
+    @State private var pose: KomeCineMascotPose = .resting
+    @State private var kernelVisible = false
+    @State private var kernelRaised = false
+    @State private var heartVisible = false
+    @State private var heartRaised = false
+
+    private var shouldAnimate: Bool {
+        isVisible && scenePhase == .active && !reduceMotion
+    }
+
+    var body: some View {
+        ZStack {
+            KomeCineMascotSprite(pose: pose)
+                .animation(.easeInOut(duration: 0.12), value: pose)
+
+            Circle()
+                .fill(Color(red: 1, green: 0.76, blue: 0.24))
+                .overlay(Circle().stroke(.white.opacity(0.75), lineWidth: 0.6))
+                .frame(width: 5, height: 5)
+                .scaleEffect(kernelRaised ? 1 : 0.35)
+                .offset(y: kernelRaised ? -4 : 7)
+                .opacity(kernelVisible ? 1 : 0)
+
+            Image(systemName: "heart.fill")
+                .font(.system(size: 7, weight: .bold))
+                .foregroundStyle(Color(red: 1, green: 0.48, blue: 0.64))
+                .scaleEffect(heartRaised ? 1.1 : 0.65)
+                .offset(y: heartRaised ? -13 : -4)
+                .opacity(heartVisible ? 1 : 0)
+        }
+        .frame(width: 100, height: 36)
+        .clipped()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("KomeCine")
+        .accessibilityAddTraits(.isHeader)
+        .accessibilityIdentifier("home.mascot")
+        .onAppear { isVisible = true }
+        .onDisappear { isVisible = false }
+        .task(id: shouldAnimate) {
+            guard shouldAnimate else {
+                reset()
+                return
+            }
+            await animate()
+        }
+    }
+
+    private func animate() async {
+        while !Task.isCancelled {
+            reset()
+            guard await pause(for: 0.12) else { return }
+
+            withAnimation(.easeOut(duration: 0.68)) {
+                kernelVisible = true
+                kernelRaised = true
+            }
+            guard await pause(for: 0.4) else { return }
+
+            withAnimation(.easeInOut(duration: 0.12)) {
+                pose = .reaching
+            }
+            guard await pause(for: 0.48) else { return }
+
+            withAnimation(.easeInOut(duration: 0.14)) {
+                pose = .smiling
+                kernelVisible = false
+                heartVisible = true
+                heartRaised = false
+            }
+            guard await pause(for: 0.05) else { return }
+
+            withAnimation(.easeOut(duration: 0.65)) {
+                heartRaised = true
+            }
+            guard await pause(for: 0.85) else { return }
+
+            withAnimation(.easeOut(duration: 0.25)) {
+                pose = .resting
+                heartVisible = false
+                heartRaised = false
+            }
+            guard await pause(for: 0.95) else { return }
+            guard await pause(for: 10) else { return }
+        }
+    }
+
+    private func pause(for seconds: Double) async -> Bool {
+        do {
+            try await Task.sleep(for: .seconds(seconds))
+            return !Task.isCancelled
+        } catch {
+            return false
+        }
+    }
+
+    private func reset() {
+        var transaction = Transaction()
+        transaction.animation = nil
+        withTransaction(transaction) {
+            pose = .resting
+            kernelVisible = false
+            kernelRaised = false
+            heartVisible = false
+            heartRaised = false
+        }
+    }
+}
+
 private struct HomeView: View {
     @EnvironmentObject private var library: LocalLibrary
     @State private var latest:[Movie]=[]
@@ -312,7 +448,7 @@ private struct HomeView: View {
             }.refreshable { await load() }
         }.background(Design.background.ignoresSafeArea())
             .navigationTitle("KomeCine").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement:.principal) { (Text("KOME").foregroundColor(Design.accent) + Text("CINE").foregroundColor(.white)).font(.system(size:17,weight:.black)) } }
+            .toolbar { ToolbarItem(placement:.principal) { KomeCineMascotTitle() } }
             .task { if latest.isEmpty { await load() } }
     }
     private func load() async {

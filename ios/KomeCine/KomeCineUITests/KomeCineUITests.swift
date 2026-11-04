@@ -148,6 +148,8 @@ final class KomeCineUITests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
         app.launch()
+        let mascot = app.descendants(matching: .any).matching(identifier: "home.mascot").firstMatch
+        XCTAssertTrue(mascot.waitForExistence(timeout: 30), "Home should show the KomeCine mascot title")
         let featured = app.staticTexts["NỔI BẬT HÔM NAY"]
         XCTAssertTrue(featured.waitForExistence(timeout: 30))
         let bounds = app.windows.firstMatch.frame
