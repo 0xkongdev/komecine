@@ -47,7 +47,7 @@ test('search forwards category, country and year filters',async()=>{
 
 test('rankings select both RoPhim charts and preserve upstream ranking', async () => {
   const service = new CatalogService(async input => {
-    assert.match(input, /homepageLists\?page=2&limit=4/);
+    assert.equal(input, 'https://rophim1.sbs/baseapi/api/v1/lists/homepageLists?page=2&limit=4');
     return Response.json({status:true,result:{collections:[
       {slug:'top-phim-bo-hom-nay',movies:[{id:41,name:'Series',origin_name:'Series',slug:'series',type:'series',publish_year:2026,thumbnail:'https://image.example/portrait.jpg',poster:'https://image.example/landscape.jpg'}]},
       {slug:'top-phim-le-hom-nay',movies:[{id:42,name:'Movie',origin_name:'Movie',slug:'movie',type:'movie',publish_year:2024}]}
@@ -83,7 +83,7 @@ test('ranking resolution rejects an unrelated or unplayable result', async () =>
 
 test('featured movies use RoPhim hot list and keep landscape artwork', async () => {
   const service = new CatalogService(async input => {
-    assert.equal(input, 'https://rophim1.vip/baseapi/api/v1/movies/hot');
+    assert.equal(input, 'https://rophim1.sbs/baseapi/api/v1/movies/hot');
     return Response.json({status:true,result:[{id:41,name:'Series',origin_name:'The Series',slug:'series',type:'series',publish_year:2026,poster:'https://image.example/backdrop.jpg'}]});
   });
   const featured = await service.featured();

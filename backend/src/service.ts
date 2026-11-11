@@ -2,6 +2,7 @@ import { imageURL, normalizeMovie, normalizeDetail } from './catalog.ts';
 type Fetcher = (input: string, init?: RequestInit) => Promise<Response>;
 type Json = Record<string, any>;
 type RankingQuery = {name:string, originName:string, year:number, type:string};
+const ROPHIM_API = 'https://rophim1.sbs/baseapi/api/v1';
 function roMovie(m: Json, index: number, type: string) {
   if (!m || !Number.isSafeInteger(m.id) || typeof m.name !== 'string' || !m.name.trim()) return null;
   return {rank:index+1,type,movie:{id:`rophim:${m.id}`,slug:typeof m.slug === 'string' ? m.slug : '',name:m.name,originName:typeof m.origin_name === 'string' ? m.origin_name : '',posterURL:imageURL(m.thumbnail),backdropURL:imageURL(m.poster),year:Number.isInteger(m.publish_year) ? m.publish_year : null}};
@@ -45,7 +46,7 @@ export class CatalogService {
   async featured() {
     if (this.featuredCache && this.featuredCache.expires > Date.now()) return this.featuredCache.value;
     let response: Response;
-    try { response = await this.fetcher.call(globalThis, 'https://rophim1.vip/baseapi/api/v1/movies/hot', {headers:{Accept:'application/json','User-Agent':'KomeCine/1.0'}}); } catch { throw new UpstreamError(); }
+    try { response = await this.fetcher.call(globalThis, `${ROPHIM_API}/movies/hot`, {headers:{Accept:'application/json','User-Agent':'KomeCine/1.0'}}); } catch { throw new UpstreamError(); }
     if (!response.ok) throw new UpstreamError();
     let body: Json;
     try { body = await response.json() as Json; } catch { throw new UpstreamError(); }
@@ -64,7 +65,7 @@ export class CatalogService {
     const find = new Map<string, any>();
     for (const page of [2,1,3,4]) {
       let response: Response;
-      try { response = await this.fetcher.call(globalThis, `https://rophim1.vip/baseapi/api/v1/lists/homepageLists?page=${page}&limit=4`, {headers:{Accept:'application/json','User-Agent':'KomeCine/1.0'}}); } catch { throw new UpstreamError(); }
+      try { response = await this.fetcher.call(globalThis, `${ROPHIM_API}/lists/homepageLists?page=${page}&limit=4`, {headers:{Accept:'application/json','User-Agent':'KomeCine/1.0'}}); } catch { throw new UpstreamError(); }
       if (!response.ok) throw new UpstreamError();
       let body: Json;
       try { body = await response.json() as Json; } catch { throw new UpstreamError(); }
