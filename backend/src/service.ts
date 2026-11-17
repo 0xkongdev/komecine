@@ -2,7 +2,7 @@ import { imageURL, normalizeMovie, normalizeDetail } from './catalog.ts';
 type Fetcher = (input: string, init?: RequestInit) => Promise<Response>;
 type Json = Record<string, any>;
 type RankingQuery = {name:string, originName:string, year:number, type:string};
-const ROPHIM_API = 'https://rophim1.sbs/baseapi/api/v1';
+const ROPHIM_API = 'https://rophim1.ink/baseapi/api/v1';
 function roMovie(m: Json, index: number, type: string) {
   if (!m || !Number.isSafeInteger(m.id) || typeof m.name !== 'string' || !m.name.trim()) return null;
   return {rank:index+1,type,movie:{id:`rophim:${m.id}`,slug:typeof m.slug === 'string' ? m.slug : '',name:m.name,originName:typeof m.origin_name === 'string' ? m.origin_name : '',posterURL:imageURL(m.thumbnail),backdropURL:imageURL(m.poster),year:Number.isInteger(m.publish_year) ? m.publish_year : null}};
