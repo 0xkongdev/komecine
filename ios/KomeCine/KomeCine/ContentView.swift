@@ -28,6 +28,7 @@ struct ContentView: View {
             .fullScreenCover(isPresented:$playback.isExpanded,onDismiss:{ playback.presentationDidDismiss() }) { PlayerScreen().environmentObject(playback).environmentObject(library).environmentObject(downloads) }
             .onAppear { guard !prepared else { return }; prepared = true; sync.configure(library:library,auth:PlayerDebugEnvironment.enabled ? nil : auth); playback.configure(library:library,sync:sync); downloads.setAccount(PlayerDebugEnvironment.enabled ? nil : auth.userID); if !PlayerDebugEnvironment.enabled { downloads.restoreTasks() }; playback.offlineURL = { [weak downloads = downloads] movie, source in downloads?.localURL(movie:movie,source:source) }; if !PlayerDebugEnvironment.enabled, auth.token != nil { sync.activate(auth.userID,previousID:nil) }
                 #if DEBUG
+                Task { await LibraryDebugPreview.prepareIfRequested(library) }
                 PlayerDebugPreview.openIfRequested(playback)
                 #endif
             }
@@ -129,6 +130,8 @@ private struct MovieCard: View {
                 Text(movie.name).font(.system(size:13,weight:.semibold)).lineLimit(2).multilineTextAlignment(.leading).frame(width:122,alignment:.leading)
                 if let year=movie.year { Text(String(year)).font(.caption2).foregroundStyle(.secondary) }
             }.foregroundStyle(.white).frame(width:122,alignment:.topLeading)
+                // Keep scaled artwork from intercepting taps on neighboring cards.
+                .contentShape(.interaction, Rectangle())
         }.buttonStyle(.plain)
     }
 }
@@ -170,6 +173,7 @@ private struct RankingShelf: View {
                                     Text(item.movie.name).font(.system(size:13,weight:.semibold)).lineLimit(2).multilineTextAlignment(.leading).frame(width:122,alignment:.leading)
                                     if let year=item.movie.year { Text(String(year)).font(.caption2).foregroundStyle(.secondary) }
                                 }.foregroundStyle(.white).frame(width:122,alignment:.topLeading)
+                                    .contentShape(.interaction, Rectangle())
                             }.buttonStyle(.plain).accessibilityIdentifier("ranking-\(item.type)-\(item.rank)")
                         }
                     }.padding(.horizontal,20)
@@ -420,6 +424,9 @@ private struct HomeView: View {
             .task { if latest.isEmpty { await load() } }
     }
     private func load() async {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["KOMECINE_LIBRARY_PREVIEW"] == "1" { loading=false; return }
+        #endif
         loading=true; error=nil
         async let rankingLoad: Void = loadRankings()
         async let featuredLoad = try? APIClient.shared.featured()

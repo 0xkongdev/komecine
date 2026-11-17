@@ -1,6 +1,35 @@
 import XCTest
 
 final class KomeCineUITests: XCTestCase {
+    @MainActor func testContinueWatchingCardHitRegions() throws {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchEnvironment["KOMECINE_LIBRARY_PREVIEW"] = "1"
+        app.launch()
+        app.tabBars.buttons["Thư viện"].tap()
+        XCTAssertTrue(app.staticTexts["Phim thử 3"].waitForExistence(timeout: 10))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        // Check both halves of adjacent cards after their wide posters have loaded.
+        for index in 1...2 {
+            for x in [0.25, 0.75, 0.95] {
+                let card = app.buttons.matching(NSPredicate(format:"label BEGINSWITH %@", "Phim thử \(index)")).firstMatch
+                XCTAssertTrue(card.waitForExistence(timeout: 5))
+                XCTAssertEqual(card.frame.width, 122, accuracy: 1)
+                app.windows.firstMatch.coordinate(withNormalizedOffset: .zero)
+                    .withOffset(CGVector(dx: 20 + CGFloat(index - 1) * 134 + 122 * x,
+                                         dy: card.frame.minY + 70)).tap()
+                XCTAssertTrue(app.staticTexts["Phim thử \(index)"].waitForExistence(timeout: 5),
+                              "Tapping card \(index) at \(x) must open that movie")
+                XCTAssertFalse(app.buttons.matching(NSPredicate(format:"label BEGINSWITH %@", "Phim thử \(index)")).firstMatch.exists,
+                               "The shelf should have navigated to movie details")
+                app.navigationBars.buttons.firstMatch.tap()
+            }
+        }
+    }
+
     // Ranked titles change daily and a legitimate 404 must produce an availability message.
     @MainActor private func waitForLiveOutcome(_ app: XCUIApplication, success: XCUIElement, timeout: TimeInterval = 30) {
         let unavailable = app.staticTexts.matching(NSPredicate(format:"label BEGINSWITH %@", "Phim này hiện chưa có nguồn phát")).firstMatch

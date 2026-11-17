@@ -101,4 +101,16 @@ actor PosterImageLoader {
         let cost = image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
         images.setObject(image, forKey: url as NSURL, cost: cost)
     }
+
+    #if DEBUG
+    func prepareLibraryPreviewImage(url: String) async {
+        let image = await MainActor.run {
+            UIGraphicsImageRenderer(size: CGSize(width: 640, height: 360)).image { context in
+                UIColor.systemTeal.setFill()
+                context.fill(CGRect(x: 0, y: 0, width: 640, height: 360))
+            }
+        }
+        store(image, for: URL(string: url)!)
+    }
+    #endif
 }
